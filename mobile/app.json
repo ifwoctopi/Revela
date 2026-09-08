@@ -6,6 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "revela",
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-font"
+    ],
     "ios": {
       "supportsTablet": true
     },

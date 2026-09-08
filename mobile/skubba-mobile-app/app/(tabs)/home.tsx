@@ -15,6 +15,10 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>Good afternoon</Text>
         <Text style={styles.subGreeting}>Here is your latest smart-mirror update.</Text>
 
+        <TouchableOpacity style={styles.summaryButton} onPress={() => router.push('/summary')}>
+          <Text style={styles.summaryButtonText}>Open capture summary</Text>
+        </TouchableOpacity>
+
         <SectionHeader title="Latest Scan" action="View history" onPress={() => router.push('/(tabs)/history')} />
         <ScanCard scan={latestScan} onPress={() => router.push(`/scan/${latestScan.id}`)} />
 
@@ -48,6 +52,8 @@ const styles = StyleSheet.create({
   brand: { fontSize: 15, fontWeight: '800', letterSpacing: 3, color: theme.colors.primary, marginTop: 6 },
   greeting: { fontSize: 31, fontWeight: '800', color: theme.colors.text, marginTop: 14 },
   subGreeting: { fontSize: 16, color: theme.colors.mutedText, marginTop: 6, marginBottom: 12 },
+  summaryButton: { backgroundColor: theme.colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 8 },
+  summaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: 18,

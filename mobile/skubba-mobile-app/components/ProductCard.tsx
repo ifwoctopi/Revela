@@ -10,7 +10,7 @@ export default function ProductCard({ product }: { product: Product }) {
       <Text style={styles.brand}>{product.brand}</Text>
       <Text style={styles.description}>{product.description}</Text>
       {product.url ? (
-        <TouchableOpacity onPress={() => Linking.openURL(product.url)}>
+        <TouchableOpacity onPress={() => Linking.openURL(product.url as string)}>
           <Text style={styles.link}>View product</Text>
         </TouchableOpacity>
       ) : null}
