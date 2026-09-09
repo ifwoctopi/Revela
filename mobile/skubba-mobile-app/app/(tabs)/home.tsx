@@ -18,6 +18,9 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.summaryButton} onPress={() => router.push('/summary')}>
           <Text style={styles.summaryButtonText}>Open capture summary</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.captureLink} onPress={() => router.push('/capture')}>
+          <Text style={styles.linkText}>Start a new three-angle capture</Text>
+        </TouchableOpacity>
 
         <SectionHeader title="Latest Scan" action="View history" onPress={() => router.push('/(tabs)/history')} />
         <ScanCard scan={latestScan} onPress={() => router.push(`/scan/${latestScan.id}`)} />
@@ -54,6 +57,7 @@ const styles = StyleSheet.create({
   subGreeting: { fontSize: 16, color: theme.colors.mutedText, marginTop: 6, marginBottom: 12 },
   summaryButton: { backgroundColor: theme.colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 8 },
   summaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  captureLink: { alignItems: 'center', paddingVertical: 8, marginBottom: 8 },
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: 18,

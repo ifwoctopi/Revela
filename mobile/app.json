@@ -10,7 +10,13 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Révéla to use your camera for local skin captures."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true
