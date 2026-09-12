@@ -1,8 +1,10 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-import { sampleSessionSummary, sampleUserProfile } from '../data/mockData';
-import { ConditionName, Severity } from '../types/session';
+import { sampleUserProfile } from '../data/mockData';
+import { ConditionName, SessionSummary, Severity } from '../types/session';
+import { CapturedAngle, runVisionInference } from '../../skubba-mobile-app/services/vision';
 
 const severityColors: Record<Severity, string> = {
   mild: '#81d4fa',
@@ -15,10 +17,64 @@ const conditionLabels: Record<ConditionName, string> = {
   redness: 'Redness',
   dryness: 'Dryness',
   hyperpigmentation: 'Hyperpigmentation',
+  dark_circles: 'Dark circles',
+  oily_skin: 'Oily skin',
 };
 
 export function CaptureSummaryScreen() {
-  const conditions = Object.entries(sampleSessionSummary.results) as Array<
+  const { frames } = useLocalSearchParams<{ frames?: string }>();
+  const [summary, setSummary] = React.useState<SessionSummary | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!frames) return;
+
+    let frameUris: string[];
+    try {
+      frameUris = JSON.parse(frames);
+    } catch {
+      setError('The captured frames could not be read. Please try the scan again.');
+      return;
+    }
+
+    runVisionInference(
+      frameUris.map((uri, index) => ({
+        uri,
+        angle: ['front', 'left_3q', 'right_3q'][index] as CapturedAngle,
+      })),
+    ).then(setSummary).catch((inferenceError: unknown) => {
+      setError(inferenceError instanceof Error ? inferenceError.message : 'Vision analysis failed.');
+    });
+  }, [frames]);
+
+  if (frames && !summary && !error) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#3A6B58" />
+        <Text style={styles.loadingText}>Analyzing your captured views...</Text>
+      </View>
+    );
+  }
+
+  if (frames && error) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.errorTitle}>Analysis unavailable</Text>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.errorTitle}>No capture to analyze</Text>
+        <Text style={styles.errorText}>Start a new scan to generate results from your camera views.</Text>
+      </View>
+    );
+  }
+
+  const conditions = Object.entries(summary.results) as Array<
     [ConditionName, { present: boolean; confidence?: number; region?: string; severity?: Severity }]
   >;
 
@@ -29,7 +85,7 @@ export function CaptureSummaryScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Capture angles</Text>
-        <Text style={styles.rowText}>{sampleSessionSummary.angles_captured.join(' • ')}</Text>
+        <Text style={styles.rowText}>{summary.angles_captured.join(' • ')}</Text>
       </View>
 
       <View style={styles.card}>
@@ -77,6 +133,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f1ea',
   },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, backgroundColor: '#f8f1ea' },
+  loadingText: { color: '#41332d', fontSize: 16, marginTop: 16, textAlign: 'center' },
+  errorTitle: { color: '#1f1a17', fontSize: 24, fontWeight: '700', textAlign: 'center' },
+  errorText: { color: '#73615b', fontSize: 15, lineHeight: 22, marginTop: 10, textAlign: 'center' },
   content: {
     padding: 24,
     paddingTop: 72,

@@ -1,4 +1,10 @@
-export type ConditionName = 'acne' | 'redness' | 'dryness' | 'hyperpigmentation';
+export type ConditionName =
+  | 'acne'
+  | 'redness'
+  | 'dryness'
+  | 'hyperpigmentation'
+  | 'dark_circles'
+  | 'oily_skin';
 export type Severity = 'mild' | 'moderate' | 'severe';
 export type AngleName = 'front' | 'left_3q' | 'right_3q';
 

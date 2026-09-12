@@ -1,0 +1,48 @@
+import { Scan } from '../types/scan';
+
+export const mockScans: Scan[] = [
+  {
+    id: 'scan-001',
+    userId: 'user-001',
+    createdAt: '2026-09-01T16:30:00',
+    modelVersion: 'prototype-v1',
+    primaryCondition: 'Acne',
+    confidence: 0.82,
+    aiSummary: 'The latest scan identified image features associated with acne. The app can use this result to organize skincare information and routine suggestions.',
+    observations: [
+      'The classifier returned Acne as the highest-probability class.',
+      'The result should be reviewed over multiple scans rather than treated as a diagnosis.',
+    ],
+    morningRoutine: ['Gentle cleanser', 'Acne-focused treatment', 'Non-comedogenic moisturizer', 'Broad-spectrum SPF'],
+    eveningRoutine: ['Gentle cleanser', 'Acne-focused treatment', 'Moisturizer'],
+    recommendedProductTypes: ['Gentle cleanser', 'Salicylic acid treatment', 'Non-comedogenic moisturizer'],
+    imageExpiresAt: '2026-09-15T16:30:00',
+  },
+  {
+    id: 'scan-002',
+    userId: 'user-001',
+    createdAt: '2026-08-25T15:20:00',
+    modelVersion: 'prototype-v1',
+    primaryCondition: 'Acne',
+    confidence: 0.76,
+    aiSummary: 'This earlier scan also classified the image as Acne. Historical scans are shown separately so users can review patterns over time.',
+    observations: ['Acne was the top classification for this scan.'],
+    morningRoutine: ['Gentle cleanser', 'Moisturizer', 'Broad-spectrum SPF'],
+    eveningRoutine: ['Gentle cleanser', 'Acne-focused treatment', 'Moisturizer'],
+    recommendedProductTypes: ['Gentle cleanser', 'Acne-focused treatment'],
+    imageExpiresAt: '2026-09-08T15:20:00',
+  },
+  {
+    id: 'scan-003',
+    userId: 'user-001',
+    createdAt: '2026-08-18T13:05:00',
+    modelVersion: 'prototype-v1',
+    primaryCondition: 'Clear',
+    confidence: 0.71,
+    aiSummary: 'This scan classified the captured image as Clear. Continue using scan history as an informational record rather than a medical assessment.',
+    observations: ['Clear was the top classification for this scan.'],
+    morningRoutine: ['Gentle cleanser', 'Moisturizer', 'Broad-spectrum SPF'],
+    eveningRoutine: ['Gentle cleanser', 'Moisturizer'],
+    recommendedProductTypes: ['Gentle cleanser', 'Daily moisturizer', 'Broad-spectrum sunscreen'],
+  },
+];
