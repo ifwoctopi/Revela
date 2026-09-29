@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Révéla Advanced Prototype</title>
+<style>
+:root{
+  --orange:#F54927; --deep:#A62D17; --ivory:#FFF9F6; --blush:#FDEAE5;
+  --peach:#FFD9CE; --blue:#EAF6FF; --lilac:#F1ECFF; --mint:#EAF8F3;
+  --ink:#191313; --muted:#8E8180; --line:#EFE5E2; --white:#FFFFFF;
+  --shadow:0 22px 70px rgba(76,44,38,.15);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#ECE5E2;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);min-height:100vh;padding:28px 16px}
+.phone{width:min(430px,100%);min-height:860px;margin:auto;background:var(--ivory);border-radius:46px;overflow:hidden;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.75)}
+.screen{display:none;min-height:860px}.screen.active{display:block}.pad{padding:22px}
+.top,.section-head,.header,.scan-cta,.scan-cta-left,.results-top,.sheet-row,.history-item,.result-card{display:flex;align-items:center}
+.top,.section-head,.header,.scan-cta,.results-top,.sheet-row{justify-content:space-between}
+.top{margin-bottom:18px}.greeting h2{margin:0;font-size:23px;letter-spacing:-.5px}.greeting span{font-size:12px;color:var(--muted)}
+.avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(145deg,#F8DAD2,#D7B2A7);display:grid;place-items:center;font-weight:900;color:var(--deep);border:3px solid white;box-shadow:0 8px 20px rgba(0,0,0,.07)}
+.hero{position:relative;overflow:hidden;border-radius:30px;background:linear-gradient(145deg,#FFF4F0 0%,#FFD6CA 100%);padding:24px;min-height:250px}
+.hero:before,.hero:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.42)}
+.hero:before{width:200px;height:200px;right:-70px;top:-55px}.hero:after{width:110px;height:110px;right:20px;bottom:-38px}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.9);border-radius:999px;padding:7px 10px;font-size:10px;font-weight:800;color:var(--deep);position:relative;z-index:2}
+.hero-badge i{width:6px;height:6px;border-radius:50%;background:var(--orange)}
+.hero h1{position:relative;z-index:2;font-size:36px;line-height:1.02;letter-spacing:-1.3px;margin:14px 0 10px;max-width:300px}
+.hero p{position:relative;z-index:2;margin:0;color:#6F5E5A;line-height:1.55;font-size:13px;max-width:300px}
+.scan-cta{position:relative;z-index:2;margin-top:18px;width:100%;border:none;background:#fff;border-radius:20px;padding:15px 16px;cursor:pointer;box-shadow:0 10px 26px rgba(166,45,23,.09)}
+.scan-cta-left{gap:12px}.scan-icon{width:42px;height:42px;border-radius:14px;background:var(--orange);color:#fff;display:grid;place-items:center;font-size:18px;font-weight:900}
+.scan-cta strong{font-size:14px;display:block;text-align:left}.scan-cta span{font-size:10px;color:var(--muted)}.arrow{font-size:20px;color:var(--deep)}
+.section-head{margin:24px 0 12px}.section-head h3{margin:0;font-size:16px}.section-head span{font-size:11px;color:var(--muted)}
+.metric-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.card{border-radius:24px;padding:16px}.score-card{background:#FFE3DA;min-height:180px}.focus-card{background:var(--blue);min-height:180px}
+.label{font-size:11px;color:#716462;font-weight:700}.score-number{font-size:42px;font-weight:900;letter-spacing:-1.4px;margin-top:7px}.score-sub{font-size:10px;color:#786663;margin-top:2px}
+.delta{display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:rgba(255,255,255,.75);border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
+.spark{width:100%;height:50px;margin-top:9px}.focus-name{font-size:19px;font-weight:900;margin-top:9px}
+.focus-circle{margin-top:17px;width:58px;height:58px;border-radius:50%;border:7px solid #CDE6F5;border-top-color:var(--orange);display:grid;place-items:center;font-size:11px;font-weight:900;color:var(--deep)}
+.insight{background:var(--lilac);border-radius:24px;padding:17px}.insight-top{display:flex;justify-content:space-between;align-items:center}.insight-tag{font-size:10px;font-weight:800;padding:5px 8px;border-radius:999px;background:white;color:var(--deep)}
+.insight h4{margin:10px 0 6px;font-size:15px}.insight p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
+.progress-line{height:7px;border-radius:99px;background:rgba(255,255,255,.8);overflow:hidden;margin-top:14px}.progress-fill{height:100%;width:68%;background:var(--orange);border-radius:99px}.progress-meta{display:flex;justify-content:space-between;margin-top:7px;font-size:10px;color:var(--muted)}
+.bottom-nav{position:sticky;bottom:0;margin:18px 14px 14px;background:rgba(255,255,255,.96);border-radius:24px;padding:9px;display:flex;justify-content:space-around;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+.nav-item{width:50px;height:50px;border-radius:17px;display:grid;place-items:center;font-size:20px;color:#A39795;cursor:pointer}.nav-item.active{background:var(--orange);color:white}
+.header{padding:22px}.back{width:44px;height:44px;border:none;border-radius:14px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.05);cursor:pointer;font-size:22px}.header strong{font-size:16px}
+.scan-stage{margin:0 16px 16px;border-radius:34px;height:620px;overflow:hidden;position:relative;background:radial-gradient(circle at 50% 26%,rgba(255,255,255,.18),transparent 24%),linear-gradient(180deg,#CFA597,#A9766A)}
+.face-gradient{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 39%,#F0C4B5 0 20%,transparent 20.5%),radial-gradient(ellipse at 50% 57%,#E6B1A4 0 31%,transparent 31.5%),linear-gradient(180deg,#D2A798,#A8776B)}
+.scan-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);background-size:44px 44px}
+.face-outline{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);width:220px;height:300px;border:1.5px dashed rgba(255,255,255,.82);border-radius:48% 48% 44% 44%}
+.scan-point{position:absolute;width:11px;height:11px;border-radius:50%;background:white;box-shadow:0 0 0 7px rgba(255,255,255,.12)}.p1{left:48%;top:30%}.p2{left:34%;top:42%}.p3{left:63%;top:43%}.p4{left:40%;top:57%}.p5{left:59%;top:60%}
+.scan-title{position:absolute;top:22px;left:60px;color:#fff;font-size:16px;font-weight:800}.live-pill{position:absolute;top:18px;right:18px;background:rgba(255,255,255,.18);color:white;border-radius:999px;padding:8px 11px;font-size:10px;font-weight:800}
+.scan-sheet{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(255,255,255,.92);border-radius:26px;padding:17px}.scan-sheet small{font-size:9px;font-weight:900;color:var(--deep);letter-spacing:.7px;text-transform:uppercase}.scan-sheet strong{display:block;margin-top:4px;font-size:14px}
+.step-badge{background:#FFF0EC;color:var(--deep);font-size:10px;font-weight:900;border-radius:999px;padding:7px 10px}.scan-tips{display:flex;gap:8px;margin-top:12px}.scan-tip{flex:1;background:#FFF9F6;border-radius:14px;padding:9px;font-size:9px;text-align:center;color:#7C6F6C;font-weight:700}
+.capture-row{display:flex;justify-content:center;align-items:center;margin-top:14px}.capture{width:68px;height:68px;border-radius:50%;border:6px solid #FFD8CF;background:#fff;position:relative;cursor:pointer}.capture:after{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--orange)}
+.results-hero{margin:0 18px 16px;border-radius:30px;background:linear-gradient(145deg,#FFF0EB,#FFD9CE);padding:20px}.score{font-size:62px;font-weight:900;line-height:.9;color:var(--deep);letter-spacing:-2px}.score-lbl{font-size:10px;color:var(--muted);margin-top:6px}.status{background:#fff;border-radius:14px;padding:9px 11px;font-size:10px;font-weight:900;color:var(--deep)}
+.trend-box{margin-top:18px;background:rgba(255,255,255,.6);border-radius:18px;padding:12px}.trend-head{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:8px}.trend-chart{height:64px}
+.tabs{display:flex;gap:8px;padding:0 18px;margin-bottom:14px}.tab{flex:1;border:none;border-radius:14px;padding:11px;font-size:11px;font-weight:800;background:#F4EEEB;color:#8B7C79}.tab.active{background:var(--deep);color:#fff}
+.result-list{padding:0 18px}.result-card{gap:13px;border-radius:22px;padding:16px;margin-bottom:10px}.result-icon{width:48px;height:48px;border-radius:16px;background:#fff;display:grid;place-items:center;font-weight:900;color:var(--deep)}.result-info{flex:1}.result-info strong{display:block;font-size:14px}.result-info span{font-size:10px;color:var(--muted)}.result-side{text-align:right}.result-side strong{display:block;font-size:11px;color:var(--deep)}.result-side span{font-size:9px;color:#8E8180}
+.region-card{margin:14px 18px 18px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:16px}.region-card h4{margin:0 0 10px;font-size:14px}.region-face{height:150px;border-radius:18px;background:linear-gradient(145deg,#F8E5DE,#E7C0B5);position:relative;overflow:hidden}.region-face:before{content:"";position:absolute;width:82px;height:112px;border-radius:50% 50% 45% 45%;background:#F0C5B7;left:50%;top:18px;transform:translateX(-50%)}.region{position:absolute;border-radius:50%;background:rgba(245,73,39,.26);border:1px solid rgba(166,45,23,.32)}.r1{width:42px;height:24px;left:44px;top:72px}.r2{width:42px;height:24px;right:44px;top:72px}.region-legend{display:flex;justify-content:space-between;margin-top:10px;font-size:10px;color:var(--muted)}
+.action-row{padding:0 18px 24px}.primary,.secondary{width:100%;border:none;border-radius:18px;padding:16px;font-weight:800;cursor:pointer}.primary{background:var(--orange);color:white}.secondary{background:white;color:var(--ink);border:1px solid var(--line);margin-top:10px}
+.history-wrap{padding:0 20px 24px}.history-top{background:linear-gradient(145deg,#FFF0EB,#FFE1D9);border-radius:26px;padding:18px}.history-top h2{margin:0 0 6px;font-size:25px}.history-top p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}.history-chart{margin-top:18px;height:100px;background:rgba(255,255,255,.6);border-radius:18px;padding:10px}
+.history-item{gap:12px;padding:15px 0;border-bottom:1px solid var(--line)}.dot{width:10px;height:10px;border-radius:50%;background:var(--orange)}.history-item .txt{flex:1}.history-item strong{display:block;font-size:13px}.history-item span{font-size:10px;color:var(--muted)}.score-chip{background:#FFF0EB;color:var(--deep);font-weight:900;border-radius:12px;padding:8px 10px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="phone">
+<section id="home" class="screen active">
+  <div class="pad">
+    <div class="top"><div class="greeting"><h2>Good morning</h2><span>Your skin has improved this week</span></div><div class="avatar">R</div></div>
+    <div class="hero">
+      <div class="hero-badge"><i></i> ON-DEVICE ANALYSIS</div>
+      <h1>Understand your skin in seconds.</h1>
+      <p>Capture three angles and get a private, visual summary of the changes Révéla detects over time.</p>
+      <button class="scan-cta" onclick="go('scan')"><div class="scan-cta-left"><div class="scan-icon">⌁</div><div><strong>Start a new scan</strong><span>3 photos · about 30 seconds</span></div></div><div class="arrow">→</div></button>
+    </div>
+
+    <div class="section-head"><h3>Your skin today</h3><span>Updated today</span></div>
+    <div class="metric-grid">
+      <div class="card score-card"><div class="label">Skin score</div><div class="score-number">78</div><div class="score-sub">Balanced overall</div><div class="delta">↑ 4 points this week</div><svg class="spark" viewBox="0 0 120 50"><path d="M4 40 C18 31, 28 36, 42 25 S72 30, 116 9" fill="none" stroke="#F54927" stroke-width="3" stroke-linecap="round"/><circle cx="116" cy="9" r="4" fill="#A62D17"/></svg></div>
+      <div class="card focus-card"><div class="label">Focus area</div><div class="focus-name">Redness</div><div class="focus-circle">54%</div><div class="score-sub" style="margin-top:9px">Mostly cheeks</div></div>
+    </div>
+
+    <div class="section-head"><h3>Latest insight</h3><span>7 day trend</span></div>
+    <div class="insight"><div class="insight-top"><div class="label">Dryness</div><div class="insight-tag">Improving</div></div><h4>Your dryness score is trending down.</h4><p>Your latest scans show more consistent hydration around the forehead and cheeks.</p><div class="progress-line"><div class="progress-fill"></div></div><div class="progress-meta"><span>Baseline</span><span>Today</span></div></div>
+  </div>
+  <div class="bottom-nav"><div class="nav-item active">⌂</div><div class="nav-item">♡</div><div class="nav-item" onclick="go('scan')">⌁</div><div class="nav-item" onclick="go('history')">◷</div></div>
+</section>
+
+<section id="scan" class="screen">
+  <div class="header"><button class="back" onclick="go('home')">‹</button><strong>Face Scan</strong><div style="width:44px"></div></div>
+  <div class="scan-stage">
+    <div class="face-gradient"></div><div class="scan-grid"></div><div class="face-outline"></div>
+    <div class="scan-point p1"></div><div class="scan-point p2"></div><div class="scan-point p3"></div><div class="scan-point p4"></div><div class="scan-point p5"></div>
+    <div class="scan-title" id="scanTitle">Front view</div><div class="live-pill">LIVE ANALYSIS</div>
+    <div class="scan-sheet">
+      <div class="sheet-row"><div><small id="scanStepLabel">Capture 1 of 3</small><strong id="scanInstruction">Center your face and hold still</strong></div><div class="step-badge" id="angleBadge">FRONT</div></div>
+      <div class="scan-tips"><div class="scan-tip">Good lighting</div><div class="scan-tip">Face centered</div><div class="scan-tip">Neutral expression</div></div>
+      <div class="capture-row"><button class="capture" onclick="nextScan()"></button></div>
+    </div>
+  </div>
+</section>
+
+<section id="results" class="screen">
+  <div class="header"><button class="back" onclick="go('home')">‹</button><strong>Scan Results</strong><div style="width:44px"></div></div>
+  <div class="results-hero">
+    <div class="results-top"><div><div class="score">78</div><div class="score-lbl">overall skin score</div></div><div class="status">Balanced overall</div></div>
+    <div class="trend-box"><div class="trend-head"><span>Last 4 scans</span><span>+7 points</span></div><svg class="trend-chart" viewBox="0 0 300 70"><path d="M5 55 C60 44, 72 52, 118 37 S210 32, 294 11" fill="none" stroke="#F54927" stroke-width="4" stroke-linecap="round"/><circle cx="5" cy="55" r="4" fill="#A62D17"/><circle cx="118" cy="37" r="4" fill="#A62D17"/><circle cx="210" cy="27" r="4" fill="#A62D17"/><circle cx="294" cy="11" r="5" fill="#A62D17"/></svg></div>
+  </div>
+  <div class="tabs"><button class="tab active">Overview</button><button class="tab">Regions</button><button class="tab">Trends</button></div>
+  <div class="result-list">
+    <div class="result-card" style="background:#FFE3DA"><div class="result-icon">A</div><div class="result-info"><strong>Acne</strong><span>Few visible areas detected</span></div><div class="result-side"><strong>Mild</strong><span>28%</span></div></div>
+    <div class="result-card" style="background:#EAF6FF"><div class="result-icon">R</div><div class="result-info"><strong>Redness</strong><span>Mostly concentrated on cheeks</span></div><div class="result-side"><strong>Moderate</strong><span>54%</span></div></div>
+    <div class="result-card" style="background:#EAF8F3"><div class="result-icon">D</div><div class="result-info"><strong>Dryness</strong><span>Improved from your baseline</span></div><div class="result-side"><strong>Low</strong><span>19%</span></div></div>
+    <div class="result-card" style="background:#F1ECFF"><div class="result-icon">H</div><div class="result-info"><strong>Hyperpigmentation</strong><span>Small uneven-tone regions</span></div><div class="result-side"><strong>Moderate</strong><span>47%</span></div></div>
+  </div>
+  <div class="region-card"><h4>Where changes were detected</h4><div class="region-face"><div class="region r1"></div><div class="region r2"></div></div><div class="region-legend"><span>Left cheek</span><span>Right cheek</span></div></div>
+  <div class="action-row"><button class="primary" onclick="go('history')">View progress</button><button class="secondary" onclick="go('scan')">Scan again</button></div>
+</section>
+
+<section id="history" class="screen">
+  <div class="header"><button class="back" onclick="go('home')">‹</button><strong>Skin History</strong><div style="width:44px"></div></div>
+  <div class="history-wrap">
+    <div class="history-top"><h2>Your progress</h2><p>Track how visible skin conditions change across scans and compare each result with your baseline.</p><div class="history-chart"><svg viewBox="0 0 300 80" style="width:100%;height:100%"><path d="M8 62 C50 55, 90 58, 126 43 S205 40, 292 16" fill="none" stroke="#F54927" stroke-width="4" stroke-linecap="round"/><circle cx="8" cy="62" r="4" fill="#A62D17"/><circle cx="126" cy="43" r="4" fill="#A62D17"/><circle cx="205" cy="34" r="4" fill="#A62D17"/><circle cx="292" cy="16" r="5" fill="#A62D17"/></svg></div></div>
+    <div class="section-head"><h3>Recent scans</h3><span>4 sessions</span></div>
+    <div class="history-item"><div class="dot"></div><div class="txt"><strong>Today</strong><span>Redness improved slightly</span></div><div class="score-chip">78</div></div>
+    <div class="history-item"><div class="dot"></div><div class="txt"><strong>Sep 7</strong><span>Dryness decreased</span></div><div class="score-chip">74</div></div>
+    <div class="history-item"><div class="dot"></div><div class="txt"><strong>Aug 31</strong><span>Texture more even</span></div><div class="score-chip">72</div></div>
+    <div class="history-item"><div class="dot"></div><div class="txt"><strong>Aug 24</strong><span>Baseline scan</span></div><div class="score-chip">71</div></div>
+    <button class="primary" onclick="go('scan')" style="margin-top:20px">Start new scan</button>
+  </div>
+</section>
+</div>
+<script>
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo({top:0,behavior:'smooth'})}
+let scanStep=0;
+const scanData=[
+{title:'Front view',label:'Capture 1 of 3',instruction:'Center your face and hold still',badge:'FRONT'},
+{title:'Left ¾ view',label:'Capture 2 of 3',instruction:'Turn slightly to your left',badge:'LEFT ¾'},
+{title:'Right ¾ view',label:'Capture 3 of 3',instruction:'Turn slightly to your right',badge:'RIGHT ¾'}
+];
+function nextScan(){
+  scanStep++;
+  if(scanStep>=3){scanStep=0;go('results');return;}
+  const d=scanData[scanStep];
+  document.getElementById('scanTitle').textContent=d.title;
+  document.getElementById('scanStepLabel').textContent=d.label;
+  document.getElementById('scanInstruction').textContent=d.instruction;
+  document.getElementById('angleBadge').textContent=d.badge;
+}
+</script>
+</body>
+</html>
