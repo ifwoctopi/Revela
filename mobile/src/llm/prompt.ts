@@ -25,7 +25,7 @@ What stood out:
 Try this week:
 - <one practical cosmetic routine tip per bullet, max 3>`;
 
-const CONDITION_LABELS: Record<ConditionName, string> = {
+export const CONDITION_LABELS: Record<ConditionName, string> = {
   acne: 'breakouts',
   redness: 'redness',
   dryness: 'dryness',

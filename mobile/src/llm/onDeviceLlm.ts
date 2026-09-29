@@ -8,6 +8,7 @@ import { File, Paths } from 'expo-file-system';
 import { initLlama, type LlamaContext } from 'llama.rn';
 
 import type { SessionSummary, UserProfile } from '../types/session';
+import type { LlmClient } from './client';
 import { buildFeedbackMessages } from './prompt';
 
 // Same weights as Ollama's `llama3.2` (3B, Q4_K_M). See llm/README.md for how
@@ -69,6 +70,24 @@ export async function generateFeedback(
       }),
   );
   return result.text.trim();
+}
+
+/** LlmClient backed by the on-device model. Returns null when the model file isn't installed. */
+export function createOnDeviceLlmClient(): LlmClient | null {
+  if (!isModelAvailable()) return null;
+  return {
+    async complete({ messages, maxTokens, jsonSchema, temperature = 0.3 }) {
+      const context = await getContext();
+      const result = await context.completion({
+        messages,
+        n_predict: maxTokens,
+        temperature,
+        stop: STOP_WORDS,
+        response_format: jsonSchema ? { type: 'json_schema', json_schema: { strict: true, schema: jsonSchema } } : undefined,
+      });
+      return result.text.trim();
+    },
+  };
 }
 
 export async function releaseLlm(): Promise<void> {
