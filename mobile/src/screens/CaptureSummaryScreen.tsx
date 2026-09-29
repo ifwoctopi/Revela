@@ -1,10 +1,11 @@
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { sampleUserProfile } from '../data/mockData';
 import { ConditionName, SessionSummary, Severity } from '../types/session';
 import { CapturedAngle, runVisionInference } from '../../skubba-mobile-app/services/vision';
+import { speakText, stopSpeech } from '../../skubba-mobile-app/services/tts';
 
 const severityColors: Record<Severity, string> = {
   mild: '#81d4fa',
@@ -25,6 +26,13 @@ export function CaptureSummaryScreen() {
   const { frames } = useLocalSearchParams<{ frames?: string }>();
   const [summary, setSummary] = React.useState<SessionSummary | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [speechBusy, setSpeechBusy] = React.useState(false);
+  const [speaking, setSpeaking] = React.useState(false);
+  const [speechError, setSpeechError] = React.useState<string | null>(null);
+
+  React.useEffect(() => () => {
+    void stopSpeech();
+  }, []);
 
   React.useEffect(() => {
     if (!frames) return;
@@ -78,10 +86,54 @@ export function CaptureSummaryScreen() {
     [ConditionName, { present: boolean; confidence?: number; region?: string; severity?: Severity }]
   >;
 
+  const spokenConditions = conditions.filter(([, value]) => value.present);
+  const speechText = spokenConditions.length
+    ? `Today's skin check. ${spokenConditions.map(([condition, value]) =>
+      `${conditionLabels[condition]}: ${value.severity ?? 'mild'} observation${value.region ? ` around the ${value.region.replaceAll('_', ' ')}` : ''}.`,
+    ).join(' ')}`
+    : "Today's skin check did not detect any of the conditions included in this scan.";
+
+  const onSpeechPress = async () => {
+    setSpeechError(null);
+    if (speaking) {
+      await stopSpeech();
+      setSpeaking(false);
+      return;
+    }
+
+    setSpeechBusy(true);
+    try {
+      await speakText(speechText, () => setSpeaking(false));
+      setSpeaking(true);
+    } catch (speechFailure: unknown) {
+      setSpeechError(speechFailure instanceof Error ? speechFailure.message : 'Speech playback failed.');
+    } finally {
+      setSpeechBusy(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.kicker}>Today’s skin check</Text>
       <Text style={styles.title}>Révéla summary</Text>
+
+      <View style={styles.speechCard}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: speechBusy }}
+          disabled={speechBusy}
+          onPress={onSpeechPress}
+          style={({ pressed }) => [styles.speechButton, pressed && styles.speechButtonPressed, speechBusy && styles.speechButtonDisabled]}
+        >
+          {speechBusy ? <ActivityIndicator color="#fffaf5" /> : (
+            <Text style={styles.speechButtonText}>{speaking ? 'Stop speaking' : 'Listen to summary'}</Text>
+          )}
+        </Pressable>
+        <Text style={styles.speechHint}>
+          {speechBusy ? 'Preparing the offline voice for this device…' : 'Spoken on your device with Piper.'}
+        </Text>
+        {speechError ? <Text accessibilityRole="alert" style={styles.speechError}>{speechError}</Text> : null}
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Capture angles</Text>
@@ -155,6 +207,29 @@ const styles = StyleSheet.create({
     color: '#1f1a17',
     marginBottom: 8,
   },
+  speechCard: {
+    backgroundColor: '#fffaf5',
+    borderRadius: 20,
+    padding: 18,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  speechButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3A6B58',
+  },
+  speechButtonPressed: { opacity: 0.85 },
+  speechButtonDisabled: { opacity: 0.75 },
+  speechButtonText: { color: '#fffaf5', fontSize: 15, fontWeight: '700' },
+  speechHint: { color: '#73615b', fontSize: 12, textAlign: 'center' },
+  speechError: { color: '#a12622', fontSize: 13, lineHeight: 18 },
   card: {
     backgroundColor: '#fffaf5',
     borderRadius: 20,

@@ -17,7 +17,8 @@
           "cameraPermission": "Allow Révéla to use your camera for local skin captures."
         }
       ],
-      "llama.rn"
+      "llama.rn",
+      "expo-audio"
     ],
     "ios": {
       "supportsTablet": true
@@ -29,7 +30,12 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.ifwoctopi.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
