@@ -18,7 +18,9 @@
         }
       ],
       "llama.rn",
-      "expo-audio"
+      "expo-audio",
+      "expo-sqlite",
+      "expo-background-task"
     ],
     "ios": {
       "supportsTablet": true
