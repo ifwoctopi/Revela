@@ -1,1 +1,3 @@
-export { default } from '../../skubba-mobile-app/app/(tabs)/_layout';
+import {Ionicons} from '@expo/vector-icons'; import {Tabs} from 'expo-router'; import {theme} from '../../constants/theme';
+const icons:Record<string,any>={home:'home',progress:'stats-chart',routine:'checkmark-circle',journal:'book'};
+export default function Layout(){return <Tabs screenOptions={({route})=>({headerShown:false,tabBarActiveTintColor:theme.colors.primary,tabBarInactiveTintColor:theme.colors.mutedText,tabBarStyle:{height:70,paddingTop:7,paddingBottom:9,backgroundColor:theme.colors.surface,borderTopColor:theme.colors.border},tabBarIcon:({color,size})=><Ionicons name={icons[route.name]??'ellipse'} color={color} size={size}/>})}><Tabs.Screen name="home" options={{title:'Home'}}/><Tabs.Screen name="progress" options={{title:'Progress'}}/><Tabs.Screen name="routine" options={{title:'Routine'}}/><Tabs.Screen name="journal" options={{title:'Journal'}}/></Tabs>}
