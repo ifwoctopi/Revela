@@ -1,0 +1,29 @@
+name: Weekly Skincare ETL Sync
+
+on:
+  schedule:
+    # Runs at 00:00 every Sunday
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # Allows you to manually trigger it from the GitHub website
+
+jobs:
+  update-database:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' 
+          
+      - name: Install Dependencies
+        run: npm install dotenv @supabase/supabase-js
+        
+      - name: Run Sync Script
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node etl/sync.js
