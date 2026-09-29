@@ -1,4 +1,4 @@
-import { SessionSummary, UserProfile } from '../types/session';
+import type { SessionSummary, UserProfile } from '../types/session';
 
 export const sampleSessionSummary: SessionSummary = {
   session_id: 'sess_2026_09_01_001',
