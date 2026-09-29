@@ -1,0 +1,1 @@
+export interface ScanQuality { mode: 'capture_guidance' | 'automated'; lighting: 'guided' | 'good' | 'poor'; blur: 'guided' | 'good' | 'poor'; facePosition: 'guided' | 'good' | 'poor'; acceptable: boolean; note: string; }
