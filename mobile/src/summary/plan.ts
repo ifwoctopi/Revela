@@ -45,6 +45,7 @@ export interface PlannedProduct {
   time: Exclude<RoutineTime, 'AM_OR_PM'>;
   frequency: string;
   imageRef: string;
+  imagePath: string | null;
 }
 
 export interface RoutineStepPlan {
@@ -210,6 +211,7 @@ export async function buildResultsPlan(
       time: scheduleTime(hit.actives, kind),
       frequency: frequencies[0] ?? (kind === 'sunscreen' ? ACTIVES.mineral_uv_filter.frequency : 'once or twice a day'),
       imageRef: `product:${hit.p.barcode}`,
+      imagePath: hit.p.imagePath,
     };
     chosen.push(planned);
     return planned;
