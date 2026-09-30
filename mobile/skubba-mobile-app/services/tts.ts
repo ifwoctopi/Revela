@@ -115,3 +115,58 @@ export async function speakText(text: string, onFinished?: () => void): Promise<
   });
   player.play();
 }
+
+/** One synthesized utterance, ready to play. Always release() it when done. */
+export interface PreparedSpeech {
+  play(onFinished: () => void): void;
+  pause(): void;
+  resume(): void;
+  release(): void;
+}
+
+let utteranceCounter = 0;
+
+/**
+ * Synthesizes text to a local file without playing it, so a caller can
+ * prepare the next sentence while the current one plays.
+ */
+export async function prepareSpeech(text: string): Promise<PreparedSpeech> {
+  const engine = await getEngine();
+  const generated = await engine.generateSpeech(text.trim());
+  const cacheUri = FileSystem.cacheDirectory;
+  if (!cacheUri) throw new Error('The app cache directory is unavailable.');
+  const wavPath = nativePath(`${cacheUri}revela-utterance-${Date.now()}-${utteranceCounter++}.wav`);
+  await saveAudioToFile(generated, wavPath);
+
+  let player: AudioPlayer | null = null;
+  let subscription: { remove: () => void } | null = null;
+  let released = false;
+
+  const release = () => {
+    if (released) return;
+    released = true;
+    subscription?.remove();
+    player?.pause();
+    player?.remove();
+    player = null;
+    FileSystem.deleteAsync(`file://${wavPath}`, { idempotent: true }).catch(() => undefined);
+  };
+
+  return {
+    play(onFinished) {
+      if (released || player) return;
+      setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
+      player = createAudioPlayer({ uri: `file://${wavPath}` });
+      subscription = player.addListener('playbackStatusUpdate', (status) => {
+        if (status.didJustFinish) {
+          release();
+          onFinished();
+        }
+      });
+      player.play();
+    },
+    pause: () => player?.pause(),
+    resume: () => player?.play(),
+    release,
+  };
+}
