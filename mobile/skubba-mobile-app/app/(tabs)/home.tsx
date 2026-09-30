@@ -15,6 +15,9 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>Good afternoon</Text>
         <Text style={styles.subGreeting}>Here is your latest smart-mirror update.</Text>
 
+        <TouchableOpacity style={styles.summaryButton} onPress={() => router.push('/results/intake')}>
+          <Text style={styles.summaryButtonText}>Start a personalized scan</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.summaryButton} onPress={() => router.push('/summary')}>
           <Text style={styles.summaryButtonText}>Open capture summary</Text>
         </TouchableOpacity>
