@@ -140,6 +140,18 @@ export async function* generateSummary(
   const planned = plan.products.map((p) => p.barcode);
   const existing = new Set((await options.repository.getByBarcodes(planned)).map((p) => p.barcode));
   for (const id of SECTION_IDS) {
-    yield await sectionAttempts(id, plan, context, options, existing);
+    const section = await sectionAttempts(id, plan, context, options, existing);
+    yield id === 'professional' ? withEscalation(section, plan) : section;
   }
+}
+
+/**
+ * Escalations are rule-based, so their fixed message is added in code rather
+ * than trusted to the model, and it survives a fallback section.
+ */
+function withEscalation(section: SummarySection, plan: ResultsPlan): SummarySection {
+  const message = plan.escalation?.message;
+  if (!message) return section;
+  const lead = (text: string) => (text.includes(message) ? text : `${message} ${text}`);
+  return { ...section, displayText: lead(section.displayText), spokenText: lead(section.spokenText) };
 }

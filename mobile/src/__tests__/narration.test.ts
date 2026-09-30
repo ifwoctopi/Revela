@@ -193,6 +193,20 @@ describe('AutoScrollController', () => {
     expect(following).toEqual([false, true]);
   });
 
+  it('narrator section starts drive the scroll to the matching section', async () => {
+    const { c, scrolls } = controller();
+    const engine = new FakeEngine();
+    const narrator = new Narrator(engine, 3, { onChange: () => undefined, onSectionStart: (i) => c.onSectionStart(i) });
+    ['overview', 'contributing', 'routine'].forEach((id, i) => narrator.setSection(i, section(id as SummarySection['id'], `Section ${i}.`)));
+    narrator.play();
+    await flush();
+    engine.playing().finish();
+    await flush();
+    narrator.jumpTo(2);
+    await flush();
+    expect(scrolls).toEqual([[0, true], [384, true], [884, true]]);
+  });
+
   it('jumps without animation when reduced motion is on', () => {
     const { c, scrolls } = controller(true);
     c.onSectionStart(1);

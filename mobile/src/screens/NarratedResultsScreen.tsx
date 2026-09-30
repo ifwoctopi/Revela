@@ -37,7 +37,7 @@ function useAccessibilitySetting(
 }
 
 export function NarratedResultsScreen() {
-  const { services, plan, scan, sections } = useResultsFlow();
+  const { services, plan, scan, sections, intakeEscalations } = useResultsFlow();
   const [state, setState] = React.useState<NarratorState>({ status: 'idle', sectionIndex: 0, sentenceIndex: 0 });
   const [following, setFollowing] = React.useState(true);
   const reduceMotion = useAccessibilitySetting(AccessibilityInfo.isReduceMotionEnabled, 'reduceMotionChanged') ?? false;
@@ -108,6 +108,9 @@ export function NarratedResultsScreen() {
   const caption =
     isActive && currentSection ? splitSentences(currentSection.spokenText)[state.sentenceIndex] ?? '' : '';
 
+  // Every rule-based escalation (scan and intake), shown up front in fixed wording.
+  const escalationMessages = [...new Set([plan?.escalation, ...intakeEscalations].flatMap((e) => (e ? [e.message] : [])))];
+
   if (!plan) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -127,6 +130,15 @@ export function NarratedResultsScreen() {
         <Text style={styles.title}>Révéla summary</Text>
         {services && !services.llm ? (
           <Text style={styles.note}>The on-device language model isn't installed, so this summary uses standard wording.</Text>
+        ) : null}
+        {escalationMessages.length ? (
+          <View style={styles.escalation} accessibilityRole="alert">
+            {escalationMessages.map((message) => (
+              <Text key={message} style={styles.escalationText}>
+                {message}
+              </Text>
+            ))}
+          </View>
         ) : null}
 
         {SECTION_IDS.map((id, i) => {
@@ -264,6 +276,8 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.colors.primary, textTransform: 'uppercase' },
   title: { fontSize: 28, fontWeight: '800', color: theme.colors.text },
   note: { fontSize: 13, color: theme.colors.mutedText, lineHeight: 19 },
+  escalation: { padding: 16, borderRadius: 16, backgroundColor: '#FBEAEA', gap: 8 },
+  escalationText: { color: theme.colors.danger, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   card: {
     backgroundColor: theme.colors.surface, borderRadius: 18, padding: 18, borderWidth: 1,
     borderColor: theme.colors.border, gap: 10,

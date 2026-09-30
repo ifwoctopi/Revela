@@ -1,7 +1,9 @@
 import { answerQuestion } from '../guardrails/pipeline';
 import { checkScanForEscalation, checkTextForEscalation } from '../guardrails/escalation';
 import { ESCALATION_MESSAGES } from '../guardrails/messages';
+import { generateSummary } from '../summary/generate';
 import { buildResultsPlan } from '../summary/plan';
+import type { SummarySection } from '../summary/schema';
 import { SCAN, ScriptedLlm, context, repository } from './fixtures';
 
 describe('rule-based escalation triggers', () => {
@@ -43,6 +45,19 @@ describe('rule-based escalation triggers', () => {
     const uncertain = { ...SCAN, results: { acne: { present: true, confidence: 0.4, severity: 'severe' as const } } };
     expect(checkScanForEscalation(uncertain)).toMatchObject({ trigger: 'uncertain_severe_scan', message: ESCALATION_MESSAGES.uncertainScan });
     expect(checkScanForEscalation(SCAN)).toBeNull();
+  });
+
+  it.each([
+    ['with a model whose output is blocked', () => new ScriptedLlm(['You have melanoma.'])],
+    ['without a model', () => null],
+  ])('the summary always carries a scan escalation, %s', async (_, makeLlm) => {
+    const uncertain = { ...SCAN, results: { acne: { present: true, confidence: 0.4, region: 'chin', severity: 'severe' as const } } };
+    const plan = await buildResultsPlan(uncertain, context(), repository());
+    const sections: SummarySection[] = [];
+    for await (const s of generateSummary(plan, context(), { llm: makeLlm(), repository: repository(), knownBrands: [] })) sections.push(s);
+    const professional = sections.find((s) => s.id === 'professional')!;
+    expect(professional.displayText.startsWith(ESCALATION_MESSAGES.uncertainScan)).toBe(true);
+    expect(professional.spokenText.startsWith(ESCALATION_MESSAGES.uncertainScan)).toBe(true);
   });
 
   it('chat answers escalations with the fixed message without calling the model', async () => {

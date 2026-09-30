@@ -66,7 +66,7 @@ The engine exposes only per-utterance completion. The narrator therefore splits 
 3. **Scan images.** The mock data has no photos. `scan:<angle>` image refs render as a face diagram with the flagged regions marked. Product images come from bundled thumbnails or the local cache only (`allowNetwork: false`), because downloading an image would reveal which products were recommended.
 4. **The confidence threshold is 0.5** (`SCAN_CONFIDENCE_THRESHOLD`), matching `docs/model-integration.md`. A result below that threshold combined with a severe grade escalates.
 5. **Without a model installed,** sections use deterministic template text and chat returns the fallback for anything it can't answer from rules alone.
-6. **Escalation errs toward escalating.** For example, "no fever" still triggers the infection rule.
+6. **Escalation errs toward escalating.** For example, "no fever" still triggers the infection rule. Escalations never depend on the model. Every scan and intake escalation appears as a fixed-wording alert banner at the top of the results, and the scan's escalation message is added in code at the start of the "When to see a professional" section, including when that section falls back.
 7. **Chat history is not persisted,** because the app has no existing conversation persistence.
 
 ## New dependencies
