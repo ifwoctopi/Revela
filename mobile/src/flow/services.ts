@@ -7,7 +7,7 @@ import type { SpeechEngine } from '../narration/narrator';
 import { getProductRepository } from '../products/sqliteRepository';
 import type { ProductRepository } from '../products/types';
 import { sampleUserProfile } from '../data/mockData';
-import { prepareSpeech } from '../../skubba-mobile-app/services/tts';
+import { prepareSpeech } from '../../services/tts';
 
 /**
  * There is no working sign-in yet, so the app has one local user: the mock

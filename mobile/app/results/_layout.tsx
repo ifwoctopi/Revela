@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { ResultsFlowProvider } from '../../src/flow/ResultsFlowContext';
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 
 // One provider for the whole flow, so intake answers, the plan, the generated
 // sections and chat history are shared in memory and end with the flow.

@@ -5,7 +5,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 import type { AngleName, SessionSummary } from '../types/session';
 
 const ANGLE_LABELS: Record<AngleName, string> = { front: 'Front', left_3q: 'Left side', right_3q: 'Right side' };

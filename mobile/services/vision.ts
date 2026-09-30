@@ -1,0 +1,6 @@
+import { SessionSummary } from '../types/session'; import NativeVision from '../modules/revela-vision/src';
+export type CapturedAngle='front'|'left_3q'|'right_3q'; export type CapturedFrame={angle:CapturedAngle;uri:string};
+const modelClasses=['Acne','Dark_Circles','Dry_Skin','Oily_Skin','Post-Inflammatory_hyperpigmentation'] as const;
+function name(x:(typeof modelClasses)[number]){return ({Acne:'acne',Dark_Circles:'dark_circles',Dry_Skin:'dryness',Oily_Skin:'oily_skin','Post-Inflammatory_hyperpigmentation':'hyperpigmentation'} as const)[x]}
+export async function runVisionInference(frames:CapturedFrame[]):Promise<SessionSummary>{if(frames.length!==3)throw new Error('Three captured views are required.'); const predictions=NativeVision?await Promise.all(frames.map(f=>NativeVision.predict(f.uri))):frames.map((_,i)=>[.62+i*.04,.28,.34,.31,.41]); const conf=modelClasses.map((_,ci)=>Math.max(...predictions.map(p=>p[ci]??0))); return {session_id:`session_${Date.now()}`,timestamp:new Date().toISOString(),angles_captured:frames.map(f=>f.angle),results:Object.fromEntries(modelClasses.map((m,i)=>[name(m),{present:conf[i]>=.5,confidence:conf[i]}]))};}
+export const usingPrototypeFallback=!NativeVision;

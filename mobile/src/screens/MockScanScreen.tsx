@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } fr
 
 import { ScanIllustration } from '../components/ScanIllustration';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 
 /**
  * The scan step. Results still come from the mock scan data; the real

@@ -3,7 +3,7 @@ import React from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
 import { resolveProductImage } from '../products/images';
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 
 type Props = {
   barcode: string;

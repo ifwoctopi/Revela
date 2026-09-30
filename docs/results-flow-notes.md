@@ -2,7 +2,7 @@
 
 The personalized scan flow: intake → mock scan → section-by-section summary → narrated, scrolling results → guarded follow-up chat. Everything runs on the device.
 
-Entry point: **Home → "Start a personalized scan"** (`/results/intake`). Routes are in `mobile/app/results/`. They share one `ResultsFlowProvider` (`mobile/src/flow/ResultsFlowContext.tsx`) that holds the flow's state in memory.
+Entry point: **Home → "Start a personalized scan"** (below "Start appearance check") (`/results/intake`). Routes are in `mobile/app/results/`. They share one `ResultsFlowProvider` (`mobile/src/flow/ResultsFlowContext.tsx`) that holds the flow's state in memory.
 
 ## Codebase findings
 
@@ -20,7 +20,7 @@ Entry point: **Home → "Start a personalized scan"** (`/results/intake`). Route
 - **Retrieval layer:** there is no vector search. Retrieval is a deterministic keyword prefilter followed by the exact rules in `products/ingredients.ts`, which is the rules table for actives, pregnancy flags, sun sensitivity, and conflicts.
 
 ### TTS
-- **Engine:** Piper (`vits-piper-en_GB-cori-high`) through `react-native-sherpa-onnx`, played with `expo-audio`. See `skubba-mobile-app/services/tts.ts`.
+- **Engine:** Piper (`vits-piper-en_GB-cori-high`) through `react-native-sherpa-onnx`, played with `expo-audio`. See `mobile/services/tts.ts`.
 - **Events:** synthesis produces a whole WAV file. Playback only reports status updates and `didJustFinish`. There are **no word or sentence boundary events**.
 - **Controls:** the `AudioPlayer` supports pause and resume, and stopping means releasing the player. `prepareSpeech()` was added: it synthesizes without playing and returns `play / pause / resume / release`.
 
@@ -30,7 +30,7 @@ Entry point: **Home → "Start a personalized scan"** (`/results/intake`). Route
 - **Consumers:** `CaptureSummaryScreen` (the existing `/summary`), and the new flow through `ResultsFlowContext`. The shape is unchanged.
 
 ### Navigation, state, tests
-- **Navigation:** expo-router. `mobile/app/*` re-exports screens from `skubba-mobile-app/app/*`, and the root is a header-less Stack with tabs.
+- **Navigation:** expo-router, with routes in `mobile/app/` (a header-less Stack with tabs). The results flow keeps its own code under `mobile/src/`, including its own mock-scan `SessionSummary` type in `src/types/session.ts`, which is separate from the vision pipeline's `types/session.ts`.
 - **State:** React state and context only; there is no global store. Chat history is not persisted anywhere in the app, so it stays in memory for the session.
 - **Tests:** Jest with `jest-expo`, `src/**/__tests__/*.test.ts(x)`.
 

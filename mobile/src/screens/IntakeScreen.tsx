@@ -8,7 +8,7 @@ import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { checkTextForEscalation, type Escalation } from '../guardrails/escalation';
 import { applyAnswer } from '../intake/extract';
 import { INTAKE_QUESTIONS, MAX_INTAKE_ANSWER_CHARS } from '../intake/questions';
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 
 interface Bubble {
   from: 'assistant' | 'user';

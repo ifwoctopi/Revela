@@ -11,7 +11,7 @@ import { MAX_CHAT_TURNS, MAX_USER_MESSAGE_CHARS } from '../guardrails/inputFilte
 import { answerQuestion, type ChatMessage } from '../guardrails/pipeline';
 import type { PreparedSpeech } from '../narration/narrator';
 import type { SummarySection } from '../summary/schema';
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 
 /**
  * Follow-up questions about the results just presented. Every assistant

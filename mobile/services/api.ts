@@ -1,0 +1,1 @@
+import {Scan} from '../types/scan'; import {getStoredScans,saveScan} from './storage'; export async function getScans():Promise<Scan[]>{return getStoredScans()} export async function getScanById(id:string){return (await getStoredScans()).find(x=>x.id===id)} export async function addScan(scan:Scan){await saveScan(scan)}

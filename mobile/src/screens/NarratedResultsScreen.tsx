@@ -15,7 +15,7 @@ import { SECTION_IDS, type SummarySection } from '../summary/schema';
 import { SECTION_TITLES } from '../summary/sections';
 import { splitSentences } from '../summary/speech';
 import type { SessionSummary } from '../types/session';
-import { theme } from '../../skubba-mobile-app/constants/theme';
+import { theme } from '../../constants/theme';
 
 const ACTIVE_STATUSES: NarratorState['status'][] = ['playing', 'paused', 'preparing', 'waiting'];
 
