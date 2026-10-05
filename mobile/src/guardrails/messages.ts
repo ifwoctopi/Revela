@@ -5,6 +5,10 @@
 export const FALLBACK_MESSAGE =
   "I don't have reliable information on that, so I'd rather not guess. For your safety, please check with a healthcare provider or a dermatologist.";
 
+/** FALLBACK_MESSAGE for a summary section, naming the section's fixed topic instead of "that". */
+export const sectionFallbackMessage = (topic: string) =>
+  `I don't have reliable information on ${topic}, so I'd rather not guess. For your safety, please check with a healthcare provider or a dermatologist.`;
+
 export const ESCALATION_MESSAGES = {
   emergency:
     'This could be a serious allergic reaction. Please call your local emergency number or go to the nearest emergency department now.',

@@ -5,7 +5,6 @@ import { CONDITION_LABELS } from '../llm/prompt';
 import { ACTIVES } from '../products/ingredients';
 import type { ResultsPlan } from './plan';
 import type { SectionId } from './schema';
-import { splitSentences, wordCount } from './speech';
 
 export const SECTION_TITLES: Record<SectionId, string> = {
   overview: 'What we found',
@@ -17,6 +16,17 @@ export const SECTION_TITLES: Record<SectionId, string> = {
   professional: 'When to see a professional',
 };
 
+/** Fills "I don't have reliable information on …" when a section falls back. */
+export const SECTION_FALLBACK_TOPICS: Record<SectionId, string> = {
+  overview: 'what your scan found',
+  contributing: 'what may be contributing',
+  routine: 'your routine',
+  products: 'products for you',
+  cautions: 'cautions for your routine',
+  expectations: 'what to expect',
+  professional: 'when to see a professional',
+};
+
 export const SECTION_GUIDANCE: Record<SectionId, string> = {
   overview: 'Describe what the scan noticed in plain, non-medical language. Where the facts say the scan is not very confident, use hedged words like "may" or "seems".',
   contributing: 'Explain which of the listed contributors may apply to this user, tied to what they told you. Do not add any other causes.',
@@ -24,35 +34,21 @@ export const SECTION_GUIDANCE: Record<SectionId, string> = {
   products: 'For each product, say its key ingredient, why it fits, how often to use it, and when in the routine. Mention every listed product.',
   cautions: 'State each caution clearly and kindly.',
   expectations: 'Give realistic timelines, and say what is normal and what is not.',
-  professional: 'List the signs that mean seeing a professional. If the facts include an important message, say it first.',
+  professional: 'List the signs that mean seeing a professional, one per line. If the facts include an important message, say it first.',
 };
 
 const joinList = (items: string[]) =>
   items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 
-/** Keeps whole sentences until the word budget is reached. */
-function limitWords(text: string, max: number): string {
-  const out: string[] = [];
-  for (const sentence of splitSentences(text)) {
-    if (wordCount([...out, sentence].join(' ')) > max) break;
-    out.push(sentence);
-  }
-  return out.join(' ');
-}
-
 export interface SectionText {
   displayText: string;
-  spokenText: string;
   productRefs: string[];
 }
 
 export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
   const byRef = new Map(plan.products.map((p) => [p.ref, p]));
-  const text = (display: string, productRefs: string[] = [], spoken = display): SectionText => ({
-    displayText: display,
-    spokenText: limitWords(spoken, 110),
-    productRefs,
-  });
+  // The voiceover reads this same text (see spokenFor), so the highlights say everything the summary shows.
+  const text = (displayText: string, productRefs: string[] = []): SectionText => ({ displayText, productRefs });
 
   switch (id) {
     case 'overview': {
@@ -63,9 +59,7 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
         const where = f.region ? ` around the ${f.region}` : '';
         return `${f.severity} ${f.label}${where}${f.hedged ? ', though this result is less certain' : ''}`;
       });
-      return text(
-        `Your scan looked at ${plan.scanImageRefs.length} views of your face. It noticed ${joinList(parts)}. This is a cosmetic check, not a medical assessment.`,
-      );
+      return text(`Your scan looked at ${plan.scanImageRefs.length} views of your face. It noticed ${joinList(parts)}. This is a cosmetic check, not a medical assessment.`);
     }
     case 'contributing':
       return text(`Based on what you shared, a few everyday things may play a part. ${plan.contributors.join(' ')}`);
@@ -77,7 +71,6 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
       return text(
         `Morning:\n${numbered(plan.routine.am)}\n\nEvening:\n${numbered(plan.routine.pm)}`,
         [...new Set(refs)],
-        `In the morning, ${joinList(describe(plan.routine.am))}. In the evening, ${joinList(describe(plan.routine.pm))}.`,
       );
     }
     case 'products': {
@@ -90,7 +83,10 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
         const has = actives.length ? ` contains ${joinList(actives)}${why}.` : ` is a gentle ${p.kind.replace('_', ' ')}.`;
         return `${p.name}${has} Use it ${p.time === 'AM' ? 'in the morning' : 'in the evening'}, ${p.frequency}.`;
       });
-      return text(lines.join('\n\n'), plan.products.map((p) => p.ref), lines.join(' '));
+      return text(
+        lines.join('\n\n'),
+        plan.products.map((p) => p.ref),
+      );
     }
     case 'cautions':
       return text(plan.cautions.join(' '));
@@ -98,7 +94,9 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
       return text(plan.expectations.join(' '));
     case 'professional': {
       const lead = plan.escalation ? `${plan.escalation.message} ` : '';
-      return text(`${lead}See a healthcare provider or dermatologist promptly if you notice ${joinList(plan.professionalSigns)}.`);
+      // One sign per line: easier to scan, and each is read as its own short sentence.
+      const signs = plan.professionalSigns.map((s) => `- ${s[0].toUpperCase()}${s.slice(1)}`).join('\n');
+      return text(`${lead}See a healthcare provider or dermatologist promptly if you notice any of these:\n${signs}`);
     }
   }
 }

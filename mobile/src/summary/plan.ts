@@ -89,6 +89,16 @@ const TIMELINES: Record<ConditionName, string> = {
   dark_circles: 'Under-eye products work gradually over a few weeks, and results are often modest.',
 };
 
+/** Short forms of TIMELINES for the highlight visuals; keep the two in sync. */
+export const TIMELINE_LABELS: Record<ConditionName, string> = {
+  acne: '6–8 weeks',
+  hyperpigmentation: '2–3 months',
+  redness: '2–4 weeks',
+  dryness: 'Up to 2 weeks',
+  oily_skin: '2–4 weeks',
+  dark_circles: 'A few weeks',
+};
+
 const PROFESSIONAL_SIGNS = [
   'a mole or spot that changes, bleeds or looks irregular',
   'redness that spreads, feels warm, or comes with pus or a fever',

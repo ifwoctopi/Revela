@@ -2,10 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React from 'react';
 import {
-  ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text,
+  ActivityIndicator, AppState, KeyboardAvoidingView, Pressable, SafeAreaView, ScrollView, StyleSheet, Text,
   TextInput, View,
 } from 'react-native';
 
+import { Reveal } from '../../components/motion';
+import { HandMark } from '../../components/ui';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { MAX_CHAT_TURNS, MAX_USER_MESSAGE_CHARS } from '../guardrails/inputFilter';
 import { answerQuestion, type ChatMessage } from '../guardrails/pipeline';
@@ -92,7 +94,7 @@ export function FollowUpChatScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <View style={styles.header}>
           <Text style={styles.kicker}>Your results</Text>
           <Text style={styles.title}>Ask a question</Text>
@@ -106,13 +108,22 @@ export function FollowUpChatScreen() {
           style={styles.flex}
           contentContainerStyle={styles.thread}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}
+          // Keeps the latest message in view when the keyboard opens and shrinks the thread.
+          onLayout={() => scroll.current?.scrollToEnd({ animated: false })}
+          keyboardShouldPersistTaps="handled"
           accessibilityLiveRegion="polite"
         >
           {chat.length === 0 ? (
             <Text style={styles.hint}>For example: "When should I use the serum?" or "Can I use these together?"</Text>
           ) : null}
           {chat.map((m, i) => (
-            <View key={i} style={[styles.bubble, m.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
+            <Reveal key={i} distance={10} style={m.role === 'user' ? styles.userRow : styles.assistantRow}>
+              {m.role === 'assistant' ? (
+                <View style={styles.avatar}>
+                  <HandMark size={22} />
+                </View>
+              ) : null}
+            <View style={[styles.bubble, m.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
               <Text
                 style={m.role === 'user' ? styles.userText : m.kind === 'escalation' ? styles.escalationText : styles.assistantText}
                 accessibilityRole={m.kind === 'escalation' ? 'alert' : undefined}
@@ -131,6 +142,7 @@ export function FollowUpChatScreen() {
                 </Pressable>
               ) : null}
             </View>
+            </Reveal>
           ))}
           {busy ? <ActivityIndicator color={theme.colors.primary} style={styles.busy} accessibilityLabel="Preparing an answer" /> : null}
         </ScrollView>
@@ -173,12 +185,17 @@ const styles = StyleSheet.create({
   empty: { padding: 24 },
   thread: { padding: 20, gap: 10 },
   hint: { color: theme.colors.mutedText, fontSize: 14 },
-  bubble: { maxWidth: '85%', borderRadius: 16, padding: 12, gap: 6 },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: theme.colors.primary },
+  assistantRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, alignSelf: 'flex-start', maxWidth: '88%' },
+  userRow: { alignSelf: 'flex-end', maxWidth: '85%' },
+  avatar: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.espresso, alignItems: 'center', justifyContent: 'center',
+  },
+  bubble: { flexShrink: 1, borderRadius: 18, padding: 12, gap: 6 },
+  assistantBubble: { borderBottomLeftRadius: 6, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
+  userBubble: { borderBottomRightRadius: 6, backgroundColor: theme.colors.primary },
   assistantText: { color: theme.colors.text, fontSize: 15, lineHeight: 21 },
   escalationText: { color: theme.colors.danger, fontSize: 15, lineHeight: 21, fontWeight: '700' },
-  userText: { color: '#FFFFFF', fontSize: 15, lineHeight: 21 },
+  userText: { color: theme.colors.cream, fontSize: 15, lineHeight: 21 },
   playButton: { alignSelf: 'flex-end' },
   busy: { alignSelf: 'flex-start', marginLeft: 8 },
   inputRow: {
@@ -190,6 +207,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text, backgroundColor: theme.colors.background,
   },
   sendButton: { backgroundColor: theme.colors.primary, borderRadius: 12, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
-  sendText: { color: '#FFFFFF', fontWeight: '800' },
+  sendText: { color: theme.colors.cream, fontWeight: '800' },
   disabled: { opacity: 0.5 },
 });

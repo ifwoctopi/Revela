@@ -1,8 +1,22 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
-import { extractArchive } from 'react-native-sherpa-onnx/extraction';
-import { createTTS, saveAudioToFile, type TtsEngine } from 'react-native-sherpa-onnx/tts';
+import type { TtsEngine } from 'react-native-sherpa-onnx/tts';
+
+type SherpaModules = typeof import('react-native-sherpa-onnx/extraction') & typeof import('react-native-sherpa-onnx/tts');
+
+// Loaded lazily: react-native-sherpa-onnx is a native module that isn't present
+// in Expo Go, and importing it eagerly would crash the app on launch there.
+function loadSherpa(): SherpaModules {
+  try {
+    return {
+      ...(require('react-native-sherpa-onnx/extraction') as typeof import('react-native-sherpa-onnx/extraction')),
+      ...(require('react-native-sherpa-onnx/tts') as typeof import('react-native-sherpa-onnx/tts')),
+    };
+  } catch {
+    throw new Error('Speech needs a development build; it is unavailable in Expo Go.');
+  }
+}
 
 const MODEL_ID = 'vits-piper-en_GB-cori-high';
 const MODEL_DIR_NAME = `${MODEL_ID}`;
@@ -42,7 +56,7 @@ async function ensureModel(): Promise<string> {
     throw new Error('The bundled Piper voice archive could not be opened locally.');
   }
 
-  await extractArchive(
+  await loadSherpa().extractArchive(
     {
       modelId: MODEL_ID,
       archivePath: nativePath(archiveUri),
@@ -62,7 +76,7 @@ async function ensureModel(): Promise<string> {
 async function getEngine(): Promise<TtsEngine> {
   if (!enginePromise) {
     enginePromise = ensureModel().then((modelPath) =>
-      createTTS({
+      loadSherpa().createTTS({
         modelPath: { type: 'file', path: modelPath },
         modelType: 'vits',
         numThreads: 2,
@@ -96,7 +110,7 @@ export async function speakText(text: string, onFinished?: () => void): Promise<
   if (!cacheUri) throw new Error('The app cache directory is unavailable.');
   const wavPath = nativePath(`${cacheUri}revela-speech-${Date.now()}.wav`);
 
-  await saveAudioToFile(generated, wavPath);
+  await loadSherpa().saveAudioToFile(generated, wavPath);
   await setAudioModeAsync({ playsInSilentMode: true });
 
   const player = createAudioPlayer({ uri: `file://${wavPath}` });
@@ -136,7 +150,7 @@ export async function prepareSpeech(text: string): Promise<PreparedSpeech> {
   const cacheUri = FileSystem.cacheDirectory;
   if (!cacheUri) throw new Error('The app cache directory is unavailable.');
   const wavPath = nativePath(`${cacheUri}revela-utterance-${Date.now()}-${utteranceCounter++}.wav`);
-  await saveAudioToFile(generated, wavPath);
+  await loadSherpa().saveAudioToFile(generated, wavPath);
 
   let player: AudioPlayer | null = null;
   let subscription: { remove: () => void } | null = null;

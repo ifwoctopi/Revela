@@ -17,7 +17,9 @@ export interface SpeechEngine {
   prepare(text: string): Promise<PreparedSpeech>;
 }
 
-export type NarratorStatus = 'idle' | 'preparing' | 'playing' | 'paused' | 'waiting' | 'finished' | 'stopped' | 'error';
+/** 'sectionEnded': a section finished and, without auto-advance, the narrator waits for next(). */
+export type NarratorStatus =
+  | 'idle' | 'preparing' | 'playing' | 'paused' | 'waiting' | 'sectionEnded' | 'finished' | 'stopped' | 'error';
 
 export interface NarratorState {
   status: NarratorStatus;
@@ -30,6 +32,11 @@ export interface NarratorListener {
   /** Fired when a section's first sentence actually starts playing. */
   onSectionStart?(sectionIndex: number): void;
   onSentenceStart?(sectionIndex: number, sentenceIndex: number): void;
+}
+
+export interface NarratorOptions {
+  /** Move on to the next section when one finishes. Default true; false lets the user step through. */
+  autoAdvance?: boolean;
 }
 
 interface Utterance {
@@ -52,6 +59,7 @@ export class Narrator {
     private readonly engine: SpeechEngine,
     sectionCount: number,
     private listener: NarratorListener | null,
+    private readonly options: NarratorOptions = {},
   ) {
     this.sections = Array.from({ length: sectionCount }, () => null);
   }
@@ -144,7 +152,14 @@ export class Narrator {
       this.update({ status: 'waiting', sectionIndex, sentenceIndex: 0 });
       return;
     }
-    if (sentenceIndex >= sentences.length) return this.playFrom(sectionIndex + 1, 0, run);
+    if (sentenceIndex >= sentences.length) {
+      if (this.options.autoAdvance === false) {
+        // Keep sentenceIndex on the last sentence so its caption stays up.
+        this.update({ status: 'sectionEnded' });
+        return;
+      }
+      return this.playFrom(sectionIndex + 1, 0, run);
+    }
 
     const paused = this.state.status === 'paused';
     this.update({ status: paused ? 'paused' : 'preparing', sectionIndex, sentenceIndex });
@@ -193,6 +208,7 @@ export class Narrator {
 
   private prefetchAfter(sectionIndex: number, sentenceIndex: number): void {
     const sentences = this.sentencesOf(sectionIndex) ?? [];
+    // Without auto-advance the user may go either way, so the next section is only a guess; it's prefetched anyway.
     const [nextSection, nextSentence] =
       sentenceIndex + 1 < sentences.length ? [sectionIndex, sentenceIndex + 1] : [sectionIndex + 1, 0];
     const text = this.sentencesOf(nextSection)?.[nextSentence];

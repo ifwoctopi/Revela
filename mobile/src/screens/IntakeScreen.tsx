@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import React from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 
+import { Reveal } from '../../components/motion';
+import { HandMark } from '../../components/ui';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { checkTextForEscalation, type Escalation } from '../guardrails/escalation';
 import { applyAnswer } from '../intake/extract';
@@ -74,7 +76,7 @@ export function IntakeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <View style={styles.header}>
           <Text style={styles.kicker}>Before your scan</Text>
           <Text style={styles.progress} accessibilityLabel={`Question ${step + 1} of ${INTAKE_QUESTIONS.length}`}>
@@ -87,11 +89,21 @@ export function IntakeScreen() {
           style={styles.flex}
           contentContainerStyle={styles.thread}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}
+          // Keeps the latest message in view when the keyboard opens and shrinks the thread.
+          onLayout={() => scroll.current?.scrollToEnd({ animated: false })}
+          keyboardShouldPersistTaps="handled"
         >
           {bubbles.map((b, i) => (
-            <View key={i} style={[styles.bubble, b.from === 'user' ? styles.userBubble : styles.assistantBubble]}>
-              <Text style={b.from === 'user' ? styles.userText : styles.assistantText}>{b.text}</Text>
-            </View>
+            <Reveal key={i} distance={10} style={b.from === 'user' ? styles.userRow : styles.assistantRow}>
+              {b.from === 'assistant' ? (
+                <View style={styles.avatar}>
+                  <HandMark size={22} />
+                </View>
+              ) : null}
+              <View style={[styles.bubble, b.from === 'user' ? styles.userBubble : styles.assistantBubble]}>
+                <Text style={b.from === 'user' ? styles.userText : styles.assistantText}>{b.text}</Text>
+              </View>
+            </Reveal>
           ))}
           {question && !escalation ? <Text style={styles.hint}>{question.hint}</Text> : null}
         </ScrollView>
@@ -155,11 +167,16 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.colors.primary, textTransform: 'uppercase' },
   progress: { color: theme.colors.mutedText, fontWeight: '700' },
   thread: { padding: 20, gap: 10 },
-  bubble: { maxWidth: '85%', borderRadius: 16, padding: 12 },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: theme.colors.primary },
+  assistantRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, alignSelf: 'flex-start', maxWidth: '88%' },
+  userRow: { alignSelf: 'flex-end', maxWidth: '85%' },
+  avatar: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.espresso, alignItems: 'center', justifyContent: 'center',
+  },
+  bubble: { flexShrink: 1, borderRadius: 18, padding: 12 },
+  assistantBubble: { borderBottomLeftRadius: 6, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
+  userBubble: { borderBottomRightRadius: 6, backgroundColor: theme.colors.primary },
   assistantText: { color: theme.colors.text, fontSize: 15, lineHeight: 21 },
-  userText: { color: '#FFFFFF', fontSize: 15, lineHeight: 21 },
+  userText: { color: theme.colors.cream, fontSize: 15, lineHeight: 21 },
   hint: { color: theme.colors.mutedText, fontSize: 13, marginTop: 4 },
   composer: { borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface, paddingBottom: 8 },
   chips: { gap: 8, paddingHorizontal: 16, paddingTop: 12 },
@@ -173,8 +190,8 @@ const styles = StyleSheet.create({
   sendButton: { backgroundColor: theme.colors.primary, borderRadius: 12, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   skip: { alignSelf: 'center', padding: 10 },
   link: { color: theme.colors.primary, fontWeight: '700' },
-  escalation: { margin: 16, padding: 16, borderRadius: 16, backgroundColor: '#FBEAEA', gap: 12 },
+  escalation: { margin: 16, padding: 16, borderRadius: 16, backgroundColor: theme.colors.dangerSoft, gap: 12 },
   escalationText: { color: theme.colors.danger, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   primaryButton: { backgroundColor: theme.colors.primary, borderRadius: 12, padding: 14, alignItems: 'center' },
-  primaryText: { color: '#FFFFFF', fontWeight: '800' },
+  primaryText: { color: theme.colors.cream, fontWeight: '800' },
 });
