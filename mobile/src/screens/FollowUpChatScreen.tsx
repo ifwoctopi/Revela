@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator, AppState, KeyboardAvoidingView, Pressable, SafeAreaView, ScrollView, StyleSheet, Text,
@@ -8,6 +8,7 @@ import {
 
 import { Reveal } from '../../components/motion';
 import { HandMark } from '../../components/ui';
+import { HomeButton } from '../components/HomeButton';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { MAX_CHAT_TURNS, MAX_USER_MESSAGE_CHARS } from '../guardrails/inputFilter';
 import { answerQuestion, type ChatMessage } from '../guardrails/pipeline';
@@ -43,6 +44,9 @@ export function FollowUpChatScreen() {
 
   const userTurns = chat.filter((m) => m.role === 'user').length;
   const atLimit = userTurns >= MAX_CHAT_TURNS;
+  // Without the model every reply would be the fallback, so say why instead.
+  const noModel = !!services && !services.llm;
+  const cantSend = busy || atLimit || noModel || !draft.trim();
 
   const send = async () => {
     const question = draft.trim();
@@ -87,6 +91,9 @@ export function FollowUpChatScreen() {
   if (!plan) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <HomeButton />
+        </View>
         <Text style={[styles.assistantText, styles.empty]}>Run a scan first, then ask about your results here.</Text>
       </SafeAreaView>
     );
@@ -96,6 +103,13 @@ export function FollowUpChatScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <View style={styles.header}>
+          <View style={styles.nav}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Back to summary" onPress={() => router.back()} style={styles.back} hitSlop={10}>
+              <Ionicons name="chevron-back" size={20} color={theme.colors.primary} />
+              <Text style={styles.backText}>Summary</Text>
+            </Pressable>
+            <HomeButton />
+          </View>
           <Text style={styles.kicker}>Your results</Text>
           <Text style={styles.title}>Ask a question</Text>
           <Text style={styles.note}>
@@ -113,7 +127,11 @@ export function FollowUpChatScreen() {
           keyboardShouldPersistTaps="handled"
           accessibilityLiveRegion="polite"
         >
-          {chat.length === 0 ? (
+          {noModel ? (
+            <Text style={styles.hint}>
+              Follow-up questions need the on-device language model, which isn't installed on this device. Your summary is still available.
+            </Text>
+          ) : chat.length === 0 ? (
             <Text style={styles.hint}>For example: "When should I use the serum?" or "Can I use these together?"</Text>
           ) : null}
           {chat.map((m, i) => (
@@ -151,20 +169,20 @@ export function FollowUpChatScreen() {
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder={atLimit ? 'Question limit reached' : 'Ask about your results'}
+            placeholder={noModel ? 'Questions unavailable' : atLimit ? 'Question limit reached' : 'Ask about your results'}
             accessibilityLabel="Your question"
             maxLength={MAX_USER_MESSAGE_CHARS}
             style={styles.input}
             onSubmitEditing={send}
             returnKeyType="send"
-            editable={!busy && !atLimit && !!services}
+            editable={!busy && !atLimit && !noModel && !!services}
           />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Send question"
-            accessibilityState={{ disabled: busy || atLimit || !draft.trim() }}
-            disabled={busy || atLimit || !draft.trim()}
-            style={[styles.sendButton, (busy || atLimit || !draft.trim()) && styles.disabled]}
+            accessibilityState={{ disabled: cantSend }}
+            disabled={cantSend}
+            style={[styles.sendButton, cantSend && styles.disabled]}
             onPress={send}
           >
             <Text style={styles.sendText}>Send</Text>
@@ -179,6 +197,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 16, gap: 4 },
+  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backText: { color: theme.colors.primary, fontWeight: '800', fontSize: 15 },
   kicker: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.colors.primary, textTransform: 'uppercase' },
   title: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
   note: { fontSize: 13, lineHeight: 19, color: theme.colors.mutedText },

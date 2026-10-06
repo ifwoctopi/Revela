@@ -53,16 +53,16 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
   switch (id) {
     case 'overview': {
       if (plan.findings.length === 0) {
-        return text("Your scan didn't notice anything that stood out today. That's a good sign, so keep going with your current routine.");
+        return text("Nothing stood out today. Keep up your current routine.");
       }
       const parts = plan.findings.map((f) => {
         const where = f.region ? ` around the ${f.region}` : '';
-        return `${f.severity} ${f.label}${where}${f.hedged ? ', though this result is less certain' : ''}`;
+        return `${f.hedged ? 'possible ' : ''}${f.severity} ${f.label}${where}`;
       });
-      return text(`Your scan looked at ${plan.scanImageRefs.length} views of your face. It noticed ${joinList(parts)}. This is a cosmetic check, not a medical assessment.`);
+      return text(`Across ${plan.scanImageRefs.length} views, we noticed ${joinList(parts)}. This is a cosmetic check, not a medical assessment.`);
     }
     case 'contributing':
-      return text(`Based on what you shared, a few everyday things may play a part. ${plan.contributors.join(' ')}`);
+      return text(plan.contributors.join(' '));
     case 'routine': {
       const describe = (steps: ResultsPlan['routine']['am']) =>
         steps.map((s) => (s.productRef ? `${s.label.toLowerCase()} with ${byRef.get(s.productRef)!.name}` : s.label.toLowerCase()));
@@ -75,13 +75,13 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
     }
     case 'products': {
       if (plan.products.length === 0) {
-        return text("I couldn't find a product in the database that suits everything you told me, so for now keep your routine simple and gentle.");
+        return text("No product in the database suits everything you told me, so keep your routine simple and gentle for now.");
       }
       const lines = plan.products.map((p) => {
         const actives = p.actives.filter((a) => ACTIVES[a].concerns.length > 0 || p.kind === 'sunscreen').map((a) => ACTIVES[a].name);
-        const why = p.addresses.length ? `, which suits ${joinList(p.addresses.map((c) => CONDITION_LABELS[c]))}` : '';
-        const has = actives.length ? ` contains ${joinList(actives)}${why}.` : ` is a gentle ${p.kind.replace('_', ' ')}.`;
-        return `${p.name}${has} Use it ${p.time === 'AM' ? 'in the morning' : 'in the evening'}, ${p.frequency}.`;
+        const why = p.addresses.length ? ` for ${joinList(p.addresses.map((c) => CONDITION_LABELS[c]))}` : '';
+        const has = actives.length ? ` has ${joinList(actives)}${why}.` : ` is a gentle ${p.kind.replace('_', ' ')}.`;
+        return `${p.name}${has} Use ${p.time === 'AM' ? 'mornings' : 'evenings'}, ${p.frequency}.`;
       });
       return text(
         lines.join('\n\n'),
@@ -96,7 +96,7 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
       const lead = plan.escalation ? `${plan.escalation.message} ` : '';
       // One sign per line: easier to scan, and each is read as its own short sentence.
       const signs = plan.professionalSigns.map((s) => `- ${s[0].toUpperCase()}${s.slice(1)}`).join('\n');
-      return text(`${lead}See a healthcare provider or dermatologist promptly if you notice any of these:\n${signs}`);
+      return text(`${lead}See a healthcare provider or dermatologist promptly if you notice:\n${signs}`);
     }
   }
 }

@@ -19,7 +19,9 @@ const GLASS = 'rgba(255, 249, 241, 0.12)';
 
 interface Props {
   sectionCount: number;
-  /** Section being narrated, or null while the first one is still being prepared. */
+  /** Sections generated so far; shown while the highlights are being prepared. */
+  readyCount: number;
+  /** Section being narrated, or null while the sections are still being prepared. */
   sceneIndex: number | null;
   scene: HighlightScene | null;
   caption: string;
@@ -36,7 +38,7 @@ interface Props {
 }
 
 export function HighlightReel({
-  sectionCount, sceneIndex, scene, caption, voiceUnavailable, escalationMessages, plan, scan, reduceMotion,
+  sectionCount, readyCount, sceneIndex, scene, caption, voiceUnavailable, escalationMessages, plan, scan, reduceMotion,
   sectionEnded, onBack, onNext, onSkip,
 }: Props) {
   const canGoBack = sceneIndex !== null && sceneIndex > 0;
@@ -67,7 +69,7 @@ export function HighlightReel({
         {scene && sceneIndex !== null ? (
           <Scene key={sceneIndex} scene={scene} plan={plan} scan={scan} reduceMotion={reduceMotion} />
         ) : (
-          <Preparing reduceMotion={reduceMotion} />
+          <Preparing reduceMotion={reduceMotion} ready={readyCount} total={sectionCount} />
         )}
       </View>
 
@@ -285,11 +287,12 @@ function Chip({ chip }: { chip: HighlightChip }) {
   );
 }
 
-function Preparing({ reduceMotion }: { reduceMotion: boolean }) {
+function Preparing({ reduceMotion, ready, total }: { reduceMotion: boolean; ready: number; total: number }) {
   return (
-    <View style={styles.scene} accessibilityLabel="Putting together your highlights">
+    <View style={styles.scene} accessibilityLabel={`Putting together your highlights, ${ready} of ${total} sections ready`}>
       <Hero icon="sparkles" reduceMotion={reduceMotion} />
       <Text style={styles.headline}>Putting together your highlights…</Text>
+      <Text style={styles.preparingCount}>{ready} of {total} sections ready</Text>
     </View>
   );
 }
@@ -316,6 +319,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headline: { color: INK, fontSize: 30, fontWeight: '800', textAlign: 'center' },
+  preparingCount: { color: INK_MUTED, fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
   row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12 },
   stat: { minWidth: 120, alignItems: 'center', padding: 14, borderRadius: 18, backgroundColor: GLASS, gap: 2 },
   statValue: { color: INK, fontSize: 48, fontWeight: '900', fontVariant: ['tabular-nums'] },

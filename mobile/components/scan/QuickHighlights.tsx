@@ -1,13 +1,18 @@
 // A quick, story-style rundown of an appearance check: what was noticed, the
 // summary in one line, and the routine at a glance. Shorter than the
-// personalized highlights; scenes advance on their own and can be stepped.
+// personalized highlights; each scene is read aloud and moves on once both its
+// minimum time and its voiceover are done. Scenes can also be stepped.
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Easing, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '../../constants/theme';
 import { SHORT_DISCLAIMER } from '../../safety/disclaimer';
+import { prepareSpeech } from '../../services/tts';
+import type { PreparedSpeech, SpeechEngine } from '../../src/narration/narrator';
+import { withSilentFallback } from '../../src/narration/silentSpeech';
+import { splitSentences, toSpeakable } from '../../src/summary/speech';
 import type { Scan } from '../../types/scan';
 import { useReduceMotion } from '../motion';
 import type { IconName } from '../ui';
@@ -44,17 +49,25 @@ export function QuickHighlights({ scan, onDone }: { scan: Scan; onDone(): void }
 
   const scenes = React.useMemo(() => buildScenes(scan), [scan]);
   const last = scenes.length - 1;
+  const voice = useSceneVoice(scenes);
+  // Index of the scene whose timer / voiceover has finished; the scene moves on once both match.
+  const [timerDone, setTimerDone] = React.useState(-1);
+  const [voiceDone, setVoiceDone] = React.useState(-1);
 
   React.useEffect(() => {
     progress.setValue(0);
     const anim = Animated.timing(progress, { toValue: 1, duration: SCENE_MS, easing: Easing.linear, useNativeDriver: false });
-    anim.start(({ finished }) => {
-      if (!finished) return;
-      if (index >= last) doneRef.current();
-      else setIndex(index + 1);
-    });
+    anim.start(({ finished }) => finished && setTimerDone(index));
     return () => anim.stop();
-  }, [index, last, progress]);
+  }, [index, progress]);
+
+  React.useEffect(() => voice.play(index, () => setVoiceDone(index)), [index, voice]);
+
+  React.useEffect(() => {
+    if (timerDone !== index || voiceDone !== index) return;
+    if (index >= last) doneRef.current();
+    else setIndex(index + 1);
+  }, [timerDone, voiceDone, index, last]);
 
   const scene = scenes[index];
 
@@ -109,6 +122,85 @@ interface QuickScene {
   chips?: Array<{ icon: IconName; label: string; pct: number }>;
   stats?: Array<{ icon: IconName; value: number; label: string }>;
   body?: string;
+  /** Voiceover for the scene: what it shows, as plain sentences. */
+  spoken: string;
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Reads each scene aloud with the on-device voice, falling back to timed
+ * silence (e.g. in Expo Go). Every scene is synthesized up front, one at a
+ * time, so playback starts without a gap; a revisited scene is synthesized again.
+ */
+function useSceneVoice(scenes: QuickScene[]) {
+  const voice = React.useMemo(() => {
+    const engine: SpeechEngine = withSilentFallback({ prepare: prepareSpeech });
+    const sentences = scenes.map((sc) => splitSentences(toSpeakable(sc.spoken)));
+    const cache = new Map<string, Promise<PreparedSpeech>>();
+    // Piper runs one synthesis at a time.
+    let queue: Promise<unknown> = Promise.resolve();
+    let current: PreparedSpeech | null = null;
+    let disposed = false;
+
+    const take = (key: string, text: string) => {
+      const cached = cache.get(key);
+      cache.delete(key);
+      if (cached) return cached;
+      const next = queue.then(() => engine.prepare(text));
+      queue = next.catch(() => undefined);
+      return next;
+    };
+    const prefetch = (scene: number) =>
+      sentences[scene]?.forEach((text, i) => {
+        const key = `${scene}:${i}`;
+        if (!cache.has(key)) cache.set(key, take(key, text));
+      });
+    const release = (p: Promise<PreparedSpeech>) => p.then((sp) => sp.release(), () => undefined);
+    scenes.forEach((_, i) => prefetch(i));
+
+    return {
+      /** Plays a scene's voiceover, calling onDone when it ends; returns a stop function. */
+      play(scene: number, onDone: () => void) {
+        let stopped = false;
+        const pending = (sentences[scene] ?? []).map((text, i) => take(`${scene}:${i}`, text));
+        (async () => {
+          for (const p of pending) {
+            const speech = await p.catch(() => null);
+            if (stopped || disposed) return speech?.release();
+            if (!speech) continue;
+            current = speech;
+            await new Promise<void>((resolve) => speech.play(resolve));
+            current = null;
+          }
+          if (!stopped && !disposed) onDone();
+        })();
+        return () => {
+          stopped = true;
+          current?.release();
+          current = null;
+          pending.forEach(release);
+          if (!disposed) prefetch(scene); // ready again if the user steps back
+        };
+      },
+      pause: () => current?.pause(),
+      resume: () => current?.resume(),
+      dispose() {
+        disposed = true;
+        current?.release();
+        current = null;
+        cache.forEach(release);
+        cache.clear();
+      },
+    };
+  }, [scenes]);
+
+  React.useEffect(() => () => voice.dispose(), [voice]);
+  React.useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => (next === 'active' ? voice.resume() : voice.pause()));
+    return () => sub.remove();
+  }, [voice]);
+  return voice;
 }
 
 function buildScenes(scan: Scan): QuickScene[] {
@@ -118,19 +210,37 @@ function buildScenes(scan: Scan): QuickScene[] {
       ? {
           icon: 'eye-outline',
           kicker: 'What we noticed',
-          headline: top.length === 1 ? '1 pattern stood out' : `${top.length} patterns stood out`,
+          headline: `${plural(top.length, 'pattern', 'patterns')} stood out`,
           chips: top.map((o) => ({
             icon: OBS_ICONS[o.characteristic] ?? 'ellipse-outline',
             label: o.displayLabel,
             pct: Math.round(o.modelConfidence * 100),
           })),
+          spoken: [
+            `${plural(top.length, 'pattern', 'patterns')} stood out.`,
+            ...top.map((o) => `${o.displayLabel}, ${Math.round(o.modelConfidence * 100)}%.`),
+            'Model confidence, not medical severity.',
+          ].join(' '),
         }
-      : { icon: 'happy-outline', kicker: 'What we noticed', headline: 'Nothing stood out this time', body: 'No supported pattern crossed the model threshold.' },
-    { icon: 'sparkles-outline', kicker: 'In short', headline: 'Your skin today', body: firstSentence(scan.appearanceSummary) },
+      : {
+          icon: 'happy-outline',
+          kicker: 'What we noticed',
+          headline: 'Nothing stood out this time',
+          body: 'No supported pattern crossed the model threshold.',
+          spoken: 'Nothing stood out this time. No supported pattern crossed the model threshold.',
+        },
+    {
+      icon: 'sparkles-outline',
+      kicker: 'In short',
+      headline: 'Your skin today',
+      body: firstSentence(scan.appearanceSummary),
+      spoken: `Your skin today. ${firstSentence(scan.appearanceSummary)}`,
+    },
     {
       icon: 'heart-outline',
       kicker: 'Love your skin',
       headline: 'Your routine',
+      spoken: `Your routine has ${plural(scan.morningRoutine.length, 'morning step', 'morning steps')} and ${plural(scan.eveningRoutine.length, 'evening step', 'evening steps')}.`,
       stats: [
         { icon: 'sunny', value: scan.morningRoutine.length, label: 'morning steps' },
         { icon: 'moon', value: scan.eveningRoutine.length, label: 'evening steps' },

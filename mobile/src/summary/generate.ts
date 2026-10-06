@@ -18,6 +18,13 @@ import { spokenFor } from './speech';
 export const MAX_SECTION_RETRIES = 2;
 
 /**
+ * Sections the model writes. The others only restate fixed lists from the plan
+ * (their facts say "use only these"), so their templates say the same thing
+ * and skip a slow on-device model call each.
+ */
+export const MODEL_WRITTEN_SECTIONS: ReadonlySet<SectionId> = new Set<SectionId>(['overview', 'contributing', 'products']);
+
+/**
  * TEMPORARY, while debugging TTS on the last slide: the professional signs are
  * shown as text on the highlight instead of being read aloud. Set to true to
  * read them again.
@@ -55,7 +62,7 @@ Facts (use only these and add nothing else):
 ${facts}
 
 Reply with JSON containing displayText and productRefs.
-- displayText: ${SECTION_GUIDANCE[id]} Two to five short sentences of plain text. It is shown on screen and also read aloud, so avoid symbols and abbreviations.
+- displayText: ${SECTION_GUIDANCE[id]} Be brief: short, direct sentences with no filler or repetition, but keep every fact. Plain text only; it is shown on screen and also read aloud, so avoid symbols and abbreviations.
 - productRefs: the reference, like P1, of every product you mention${requiresProducts ? ' (at least one)' : ', or an empty list'}.`;
 }
 
@@ -108,7 +115,7 @@ async function sectionAttempts(
     return { ...schema.section, displayText: display.text, spokenText: spoken.text };
   };
 
-  if (!options.llm) {
+  if (!options.llm || !MODEL_WRITTEN_SECTIONS.has(id)) {
     return accept(toSection(templateSection(id, plan))) ?? fallbackSection(id);
   }
 
@@ -119,7 +126,8 @@ async function sectionAttempts(
           { role: 'system', content: GUARDED_SYSTEM_PROMPT },
           { role: 'user', content: prompt },
         ],
-        maxTokens: 450,
+        // Sections are a few short sentences; a lower cap stops long rambles early.
+        maxTokens: 300,
         jsonSchema: OUTPUT_SCHEMA,
       });
       const parsed = extractJson(raw) as Partial<Record<keyof SectionText, unknown>> | null;
@@ -162,7 +170,7 @@ export async function* generateSummary(
 /** The voiceover for the professional slide without the signs, which the slide shows as text. */
 function signsOnScreen(section: SummarySection, plan: ResultsPlan): SummarySection {
   const lead = plan.escalation ? `${plan.escalation.message} ` : '';
-  const spoken = `${lead}See a healthcare provider or dermatologist promptly if you notice any of the signs on screen.`;
+  const spoken = `${lead}See a healthcare provider or dermatologist promptly if you notice any sign on screen.`;
   return { ...section, spokenText: spokenFor(section.title, spoken) };
 }
 

@@ -81,12 +81,12 @@ const PREFERRED_ACTIVES: Record<ConditionName, ActiveId[]> = {
 };
 
 const TIMELINES: Record<ConditionName, string> = {
-  acne: 'Breakouts usually take about six to eight weeks of steady use to settle.',
-  hyperpigmentation: 'Dark spots fade slowly, usually over two to three months.',
-  redness: 'Redness often calms within two to four weeks once skin is less irritated.',
-  dryness: 'Dryness usually improves within a few days to two weeks.',
-  oily_skin: 'Shine usually looks more balanced within two to four weeks.',
-  dark_circles: 'Under-eye products work gradually over a few weeks, and results are often modest.',
+  acne: 'Breakouts usually settle after six to eight weeks of steady use.',
+  hyperpigmentation: 'Dark spots fade slowly, over two to three months.',
+  redness: 'Redness often calms in two to four weeks as irritation settles.',
+  dryness: 'Dryness usually improves in a few days to two weeks.',
+  oily_skin: 'Shine usually balances out in two to four weeks.',
+  dark_circles: 'Under-eye products work gradually over weeks, often modestly.',
 };
 
 /** Short forms of TIMELINES for the highlight visuals; keep the two in sync. */
@@ -101,10 +101,10 @@ export const TIMELINE_LABELS: Record<ConditionName, string> = {
 
 const PROFESSIONAL_SIGNS = [
   'a mole or spot that changes, bleeds or looks irregular',
-  'redness that spreads, feels warm, or comes with pus or a fever',
+  'redness that spreads, feels warm, or comes with pus or fever',
   'painful, deep or scarring breakouts',
   'swelling, blistering or a rash after using a product',
-  'no improvement after about three months of consistent care',
+  'no improvement after three months of consistent care',
 ];
 
 export interface PlanOptions {
@@ -289,28 +289,28 @@ function contributors(found: Finding[], context: UserContext): string[] {
   const has = (c: ConditionName) => found.some((f) => f.condition === c);
   const uses = (s: UserContext['routineSteps'][number]) => context.routineSteps.includes(s);
   const out: string[] = [];
-  if (has('hyperpigmentation') && !uses('sunscreen')) out.push('Daily sun exposure without sunscreen can make dark spots more noticeable.');
-  if (has('dryness') && uses('exfoliant')) out.push('Frequent exfoliation can leave skin feeling drier.');
-  if (has('dryness') && !uses('moisturizer')) out.push('Skipping moisturizer can leave skin feeling tight and dry.');
-  if ((has('acne') || has('oily_skin')) && context.skinType === 'oily') out.push('Naturally oily skin can make clogged pores more likely.');
+  if (has('hyperpigmentation') && !uses('sunscreen')) out.push('Sun without sunscreen can darken spots.');
+  if (has('dryness') && uses('exfoliant')) out.push('Frequent exfoliating can dry skin out.');
+  if (has('dryness') && !uses('moisturizer')) out.push('Skipping moisturizer can leave skin tight and dry.');
+  if ((has('acne') || has('oily_skin')) && context.skinType === 'oily') out.push('Oily skin is more prone to clogged pores.');
   if (has('redness') && (uses('exfoliant') || context.currentActives.some((a) => STRONG_ACTIVES.includes(a)))) {
-    out.push('Strong exfoliants or retinoids can make redness more visible.');
+    out.push('Strong exfoliants or retinoids can increase redness.');
   }
-  if (has('redness') && context.skinType === 'sensitive') out.push('Sensitive skin can react to harsh or heavily fragranced products.');
-  if (has('dark_circles')) out.push('Sleep, hydration and genetics often play a part in under-eye darkness.');
-  out.push('Everyday factors like sun, weather, sleep and stress can all affect how skin looks.');
+  if (has('redness') && context.skinType === 'sensitive') out.push('Sensitive skin can react to harsh or fragranced products.');
+  if (has('dark_circles')) out.push('Sleep, hydration and genetics affect under-eye darkness.');
+  out.push('Sun, weather, sleep and stress also affect how skin looks.');
   return out;
 }
 
 function cautions(products: PlannedProduct[], context: UserContext): string[] {
   const out = [
-    'Patch test each new product on a small area for a couple of days before using it on your whole face.',
-    'Introduce one new product at a time, about a week apart.',
+    'Patch test new products on a small area for two days first.',
+    'Add new products one at a time, a week apart.',
   ];
   const actives = [...new Set(products.flatMap((p) => p.actives))];
   const sunSensitizing = actives.filter((a) => ACTIVES[a].sunSensitizing);
   if (sunSensitizing.length) {
-    out.push(`${sunSensitizing.map((a) => ACTIVES[a].name).join(' and ')} can make skin more sensitive to the sun, so wear sunscreen every morning.`);
+    out.push(`${sunSensitizing.map((a) => ACTIVES[a].name).join(' and ')} increase sun sensitivity, so wear sunscreen every morning.`);
   }
   for (const time of ['AM', 'PM'] as const) {
     const atTime = products.filter((p) => p.time === time).flatMap((p) => p.actives);
@@ -318,16 +318,16 @@ function cautions(products: PlannedProduct[], context: UserContext): string[] {
   }
   out.push(...conflictsBetween(context.currentActives, actives).map((c) => `With what you already use: ${c}`));
   if (context.pregnancy === 'yes') {
-    out.push("Because you're pregnant or breastfeeding, products with retinoids and several acids were left out. Check any new product with your healthcare provider.");
+    out.push("Retinoids and several acids were left out since you're pregnant or breastfeeding. Check new products with your healthcare provider.");
   } else if (context.pregnancy !== 'no') {
-    out.push('If you are pregnant or breastfeeding, check with your healthcare provider before using retinoids or strong acids.');
+    out.push('If pregnant or breastfeeding, ask your healthcare provider before using retinoids or strong acids.');
   }
   const groups = context.sensitivities.filter((s) => s in SENSITIVITY_GROUPS);
   const activeSensitivities = context.sensitivities.filter((s) => s in ACTIVES).map((s) => ACTIVES[s as ActiveId].name);
   const avoided = [...groups.map((g) => g.replace('_', ' ')), ...activeSensitivities];
-  if (avoided.length) out.push(`Products containing ${avoided.join(', ')} were left out based on what you told me.`);
+  if (avoided.length) out.push(`Products with ${avoided.join(', ')} were left out, as you asked.`);
   if (context.unrecognizedSensitivities > 0) {
-    out.push("You mentioned an ingredient I can't check automatically, so please read every label carefully.");
+    out.push("I can't check one ingredient you mentioned, so read labels carefully.");
   }
   return [...new Set(out)];
 }
@@ -335,10 +335,10 @@ function cautions(products: PlannedProduct[], context: UserContext): string[] {
 function expectations(found: Finding[], products: PlannedProduct[]): string[] {
   const out = found.map((f) => TIMELINES[f.condition]);
   const actives = products.flatMap((p) => p.actives);
-  out.push('Mild tingling for the first few uses of a new active can be normal.');
+  out.push('Mild tingling from a new active is normal at first.');
   if (actives.some((a) => a === 'salicylic_acid' || a === 'retinoid' || a === 'aha')) {
-    out.push('A few extra breakouts in the first weeks can happen as skin adjusts.');
+    out.push('A few extra breakouts in the first weeks are possible as skin adjusts.');
   }
-  out.push('Burning, swelling, hives or a spreading rash are not normal. Stop the product if that happens.');
+  out.push('Burning, swelling, hives or a spreading rash are not normal. Stop the product.');
   return out;
 }

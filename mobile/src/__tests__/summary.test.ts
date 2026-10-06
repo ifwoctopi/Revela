@@ -1,5 +1,5 @@
 import { sectionFallbackMessage } from '../guardrails/messages';
-import { generateSummary, MAX_SECTION_RETRIES } from '../summary/generate';
+import { generateSummary, MAX_SECTION_RETRIES, MODEL_WRITTEN_SECTIONS } from '../summary/generate';
 import { buildResultsPlan } from '../summary/plan';
 import { SECTION_IDS, type SummarySection } from '../summary/schema';
 import { SCAN, ScriptedLlm, context, repository, sectionJson } from './fixtures';
@@ -52,6 +52,15 @@ describe('section generation', () => {
     expect(sections.map((s) => s.id)).toEqual([...SECTION_IDS]);
     expect(sections.filter((s) => s.isFallback)).toEqual([]);
     expect(sections.find((s) => s.id === 'products')!.productIds.length).toBeGreaterThan(0);
+  });
+
+  it('only calls the model for the sections it writes; the rest use templates', async () => {
+    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const llm = new ScriptedLlm(['not json']);
+    const sections = await collect(generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] }));
+    const prompted = new Set(llm.requests.map((r) => SECTION_IDS.find((id) => r.messages[1].content.includes(`"${sections.find((s) => s.id === id)!.title}"`))));
+    expect([...prompted].sort()).toEqual([...MODEL_WRITTEN_SECTIONS].sort());
+    for (const s of sections) expect(Boolean(s.isFallback)).toBe(MODEL_WRITTEN_SECTIONS.has(s.id));
   });
 
   it('regenerates when a product id does not exist, then falls back after 2 retries', async () => {

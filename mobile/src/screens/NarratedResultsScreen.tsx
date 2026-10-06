@@ -6,6 +6,7 @@ import { AccessibilityInfo, AppState, SafeAreaView, ScrollView, StyleSheet, Text
 import { PressableScale, Reveal } from '../../components/motion';
 import { ExpandableText, HandMark, IconBadge, type IconName } from '../../components/ui';
 import { HighlightReel } from '../components/HighlightReel';
+import { HomeButton } from '../components/HomeButton';
 import { ProductImage } from '../components/ProductImage';
 import { ScanIllustration, parseScanRef } from '../components/ScanIllustration';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
@@ -81,7 +82,9 @@ export function NarratedResultsScreen() {
     };
   }, [services]);
 
-  // Feed each section to the narrator as soon as it validates; start with section 1.
+  // Feed each section to the narrator as soon as it validates. Playback waits
+  // until every section is ready, so the highlights never stall mid-way on the
+  // model (and the voice doesn't compete with it for the CPU).
   React.useEffect(() => {
     const narrator = narratorRef.current;
     if (!narrator) return;
@@ -91,7 +94,7 @@ export function NarratedResultsScreen() {
         narrator.setSection(i, s);
       }
     });
-    if (sections[0] && !autoStarted.current && screenReader === false && phaseRef.current === 'highlights') {
+    if (sections.every(Boolean) && !autoStarted.current && screenReader === false && phaseRef.current === 'highlights') {
       autoStarted.current = true;
       narrator.play();
     }
@@ -166,6 +169,7 @@ export function NarratedResultsScreen() {
     return (
       <HighlightReel
         sectionCount={SECTION_IDS.length}
+        readyCount={sections.filter(Boolean).length}
         sceneIndex={sceneIndex}
         scene={sceneIndex === null ? null : highlightScene(SECTION_IDS[sceneIndex], plan)}
         caption={caption}
@@ -185,6 +189,7 @@ export function NarratedResultsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
+        <HomeButton />
         <Reveal>
           <View style={styles.hero}>
             <View style={styles.heroText}>
