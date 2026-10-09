@@ -61,6 +61,18 @@ describe('adversarial chat inputs', () => {
     expect(sent).not.toMatch(/test-user|0000000001\d{3}|userId|products\.db/);
   });
 
+  it('leaves fixed fallback replies out of the history sent to the model', async () => {
+    const llm = new ScriptedLlm(['Use your cleanser every morning and evening.']);
+    const history = [
+      { role: 'user' as const, text: 'What is snail mucin?' },
+      { role: 'assistant' as const, text: FALLBACK_MESSAGE, kind: 'fallback' as const },
+    ];
+    await answerQuestion('How often should I cleanse?', history, await deps(llm));
+    const sent = llm.requests[0].messages.map((m) => m.content).join('\n');
+    expect(sent).toContain('What is snail mucin?');
+    expect(sent).not.toContain(FALLBACK_MESSAGE);
+  });
+
   it('returns a grounded, validated answer', async () => {
     const d = await deps(new ScriptedLlm([]));
     const serum = d.plan.products[0];

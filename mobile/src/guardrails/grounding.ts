@@ -80,8 +80,13 @@ export async function retrieveForQuestion(
     (p) => new RegExp(`\\b${p.ref}\\b`, 'i').test(question) || significantWords(p.name).filter((w) => words.includes(w)).length >= 2,
   );
 
-  const brands = [...new Set([...knownBrands, ...WELL_KNOWN_BRANDS])].filter((b) => b.length >= 4);
-  const mentionedBrands = brands.filter((b) => new RegExp(`(^|[^\\w])${escapeRegExp(b)}($|[^\\w])`, 'i').test(question));
+  // Well-known brands match in any case ("cerave"). Database brands must match
+  // their case, since many are ordinary words ("Benefit", "Life", "Target").
+  const mentions = (brand: string, flags: string) => new RegExp(`(^|[^\\w])${escapeRegExp(brand)}($|[^\\w])`, flags).test(question);
+  const mentionedBrands = [
+    ...WELL_KNOWN_BRANDS.filter((b) => b.length >= 4 && mentions(b, 'i')),
+    ...knownBrands.filter((b) => b.length >= 4 && !WELL_KNOWN_BRANDS.includes(b) && mentions(b, '')),
+  ];
   const named = namedProduct(question);
 
   let found: ProductRecord[] = [];

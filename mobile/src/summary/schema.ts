@@ -43,8 +43,11 @@ export type SectionIssue =
   | 'unoffered_product'
   | 'no_products';
 
-/** ~12–130 words is roughly 5–45 seconds of speech; prompts aim for 15–40 seconds. */
-export const SPOKEN_WORDS = { min: 12, max: 130 } as const;
+/**
+ * Spoken text reads the whole section (title plus displayText) over the
+ * highlight visuals, so its ceiling follows MAX_DISPLAY_CHARS.
+ */
+export const SPOKEN_WORDS = { min: 6, max: 300 } as const;
 export const MAX_DISPLAY_CHARS = 1200;
 
 export function validateSection(

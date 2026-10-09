@@ -59,11 +59,7 @@ describe('privacy during the results flow', () => {
       (req) => {
         const prompt = req.messages.map((m) => m.content).join('\n');
         if (/Write the "/.test(prompt)) {
-          return sectionJson(
-            'Use the serum in the evening after cleansing.',
-            'Use the serum in the evening, after you cleanse your skin.',
-            /\bP1\b/.test(prompt) ? ['P1'] : [],
-          );
+          return sectionJson('Use the serum in the evening after cleansing.', /\bP1\b/.test(prompt) ? ['P1'] : []);
         }
         if (/Facts for this conversation/.test(prompt)) return 'Use it in the evening, after cleansing.';
         return '{}';

@@ -1,5 +1,5 @@
-import { FALLBACK_MESSAGE } from '../guardrails/messages';
-import { generateSummary, MAX_SECTION_RETRIES } from '../summary/generate';
+import { sectionFallbackMessage } from '../guardrails/messages';
+import { generateSummary, MAX_SECTION_RETRIES, MODEL_WRITTEN_SECTIONS } from '../summary/generate';
 import { buildResultsPlan } from '../summary/plan';
 import { SECTION_IDS, type SummarySection } from '../summary/schema';
 import { SCAN, ScriptedLlm, context, repository, sectionJson } from './fixtures';
@@ -54,20 +54,25 @@ describe('section generation', () => {
     expect(sections.find((s) => s.id === 'products')!.productIds.length).toBeGreaterThan(0);
   });
 
+  it('only calls the model for the sections it writes; the rest use templates', async () => {
+    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const llm = new ScriptedLlm(['not json']);
+    const sections = await collect(generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] }));
+    const prompted = new Set(llm.requests.map((r) => SECTION_IDS.find((id) => r.messages[1].content.includes(`"${sections.find((s) => s.id === id)!.title}"`))));
+    expect([...prompted].sort()).toEqual([...MODEL_WRITTEN_SECTIONS].sort());
+    for (const s of sections) expect(Boolean(s.isFallback)).toBe(MODEL_WRITTEN_SECTIONS.has(s.id));
+  });
+
   it('regenerates when a product id does not exist, then falls back after 2 retries', async () => {
     const plan = await buildResultsPlan(SCAN, context(), repository());
-    const bad = sectionJson(
-      'Try this great serum for your breakouts in the evening.',
-      'Try this great serum for your breakouts. Use it in the evening, a few times a week, and see how your skin feels.',
-      ['P9'],
-    );
+    const bad = sectionJson('Try this great serum for your breakouts in the evening.', ['P9']);
     const llm = new ScriptedLlm([bad]);
     const gen = generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] });
     const sections = await collect(gen);
     const products = sections.find((s) => s.id === 'products')!;
     expect(products.isFallback).toBe(true);
-    expect(products.displayText).toBe(FALLBACK_MESSAGE);
-    expect(products.spokenText).toBe(FALLBACK_MESSAGE);
+    expect(products.displayText).toBe(sectionFallbackMessage('products for you'));
+    expect(products.spokenText).toBe(`Products for you. ${sectionFallbackMessage('products for you')}`);
     const productCalls = llm.requests.filter((r) => r.messages[1].content.includes('"Products for you"'));
     expect(productCalls).toHaveLength(1 + MAX_SECTION_RETRIES);
   });
@@ -81,7 +86,7 @@ describe('section generation', () => {
       (req) => {
         if (!req.messages[1].content.includes('"Products for you"')) return 'not json';
         productAttempts++;
-        return productAttempts === 1 ? sectionJson(text, text, ['P42']) : sectionJson(text, text, [serum.ref]);
+        return productAttempts === 1 ? sectionJson(text, ['P42']) : sectionJson(text, [serum.ref]);
       },
     ]);
     const sections = await collect(generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] }));
@@ -102,7 +107,7 @@ describe('section generation', () => {
   it('never lets unsafe model text into a section', async () => {
     const plan = await buildResultsPlan(SCAN, context(), repository());
     const unsafe = 'You have rosacea and should take 100 mg of doxycycline every morning for your skin.';
-    const llm = new ScriptedLlm([sectionJson(unsafe, unsafe)]);
+    const llm = new ScriptedLlm([sectionJson(unsafe)]);
     const sections = await collect(generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] }));
     for (const s of sections) {
       expect(s.displayText).not.toMatch(/rosacea|doxycycline|mg/);

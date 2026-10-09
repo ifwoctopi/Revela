@@ -8,7 +8,12 @@ import { theme } from '../../constants/theme';
 export default function ResultsLayout() {
   return (
     <ResultsFlowProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }} />
+      <Stack
+        screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: theme.colors.background } }}
+      >
+        {/* The highlights open like a reveal; the rest of the flow slides forward. */}
+        <Stack.Screen name="summary" options={{ animation: 'fade_from_bottom' }} />
+      </Stack>
     </ResultsFlowProvider>
   );
 }

@@ -1,5 +1,5 @@
 import { AutoScrollController } from '../narration/autoScroll';
-import { Narrator, type NarratorListener, type NarratorState, type PreparedSpeech, type SpeechEngine } from '../narration/narrator';
+import { Narrator, type NarratorListener, type NarratorOptions, type NarratorState, type PreparedSpeech, type SpeechEngine } from '../narration/narrator';
 import type { SummarySection } from '../summary/schema';
 
 class FakeSpeech implements PreparedSpeech {
@@ -32,7 +32,7 @@ const section = (id: SummarySection['id'], spokenText: string): SummarySection =
 });
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-function setup(sectionCount = 3) {
+function setup(sectionCount = 3, options?: NarratorOptions) {
   const engine = new FakeEngine();
   const events: string[] = [];
   const states: NarratorState[] = [];
@@ -41,7 +41,7 @@ function setup(sectionCount = 3) {
     onSectionStart: (i) => events.push(`section:${i}`),
     onSentenceStart: (i, j) => events.push(`sentence:${i}.${j}`),
   };
-  const narrator = new Narrator(engine, sectionCount, listener);
+  const narrator = new Narrator(engine, sectionCount, listener, options);
   return { engine, events, states, narrator };
 }
 
@@ -161,6 +161,26 @@ describe('Narrator sync with TTS playback events', () => {
     narrator.replay();
     await flush();
     expect(narrator.getState()).toMatchObject({ status: 'playing', sectionIndex: 0 });
+  });
+
+  it('without auto-advance, waits at the end of each section until the user moves on', async () => {
+    const { engine, events, narrator } = setup(2, { autoAdvance: false });
+    narrator.setSection(0, section('overview', 'First. Second.'));
+    narrator.setSection(1, section('contributing', 'Third.'));
+    narrator.play();
+    await flush();
+    engine.playing().finish();
+    await flush();
+    engine.playing().finish();
+    await flush();
+    expect(narrator.getState()).toMatchObject({ status: 'sectionEnded', sectionIndex: 0, sentenceIndex: 1 });
+    expect(events).not.toContain('section:1');
+    narrator.jumpTo(1);
+    await flush();
+    expect(events.at(-1)).toBe('sentence:1.0');
+    narrator.jumpTo(0);
+    await flush();
+    expect(events.slice(-2)).toEqual(['section:0', 'sentence:0.0']);
   });
 });
 

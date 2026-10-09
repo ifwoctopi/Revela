@@ -1,2 +1,3 @@
-import {Stack} from 'expo-router'; import {StatusBar} from 'expo-status-bar';
-export default function RootLayout(){return <><StatusBar style="dark"/><Stack screenOptions={{headerShown:false}}/></>}
+import {Stack} from 'expo-router'; import {StatusBar} from 'expo-status-bar'; import {theme} from '../constants/theme';
+// Each route gets a transition that matches how it's reached: flows rise from the bottom, detail pages slide in.
+export default function RootLayout(){return <><StatusBar style="dark"/><Stack screenOptions={{headerShown:false,animation:'slide_from_right',contentStyle:{backgroundColor:theme.colors.background}}}><Stack.Screen name="index" options={{animation:'fade'}}/><Stack.Screen name="login" options={{animation:'fade_from_bottom',contentStyle:{backgroundColor:theme.colors.espresso}}}/><Stack.Screen name="(tabs)" options={{animation:'fade'}}/><Stack.Screen name="capture" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="results" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="summary" options={{animation:'fade_from_bottom'}}/></Stack></>}

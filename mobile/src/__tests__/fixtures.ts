@@ -50,5 +50,4 @@ export class ScriptedLlm implements LlmClient {
   }
 }
 
-export const sectionJson = (displayText: string, spokenText: string, productRefs: string[] = []) =>
-  JSON.stringify({ displayText, spokenText, productRefs });
+export const sectionJson = (displayText: string, productRefs: string[] = []) => JSON.stringify({ displayText, productRefs });

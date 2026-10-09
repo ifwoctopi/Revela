@@ -42,22 +42,26 @@ Entry point: **Home → "Start a personalized scan"** (below "Start appearance c
 | Scan | `screens/MockScanScreen.tsx`, `components/ScanIllustration.tsx` |
 | Deterministic plan | `summary/plan.ts`: grade→tier, sensitivity and pregnancy filtering, conflict checks, timelines |
 | Generation | `summary/generate.ts`, `summary/sections.ts`, `summary/schema.ts`, `summary/speech.ts` |
-| Narration | `narration/narrator.ts`, `narration/autoScroll.ts`, `screens/NarratedResultsScreen.tsx`, `components/ProductImage.tsx`, `products/images.ts` |
+| Narration | `narration/narrator.ts`, `narration/silentSpeech.ts`, `summary/highlights.ts`, `components/HighlightReel.tsx`, `screens/NarratedResultsScreen.tsx`, `components/ProductImage.tsx`, `products/images.ts` |
 | Chat | `screens/FollowUpChatScreen.tsx`, `guardrails/pipeline.ts` |
-| Guardrails | `guardrails/contextBuilder.ts` (L1), `systemPrompt.ts` (L2), `grounding.ts` (L3), `outputValidator.ts` (L4), `escalation.ts`, `inputFilter.ts`, `messages.ts` (**`FALLBACK_MESSAGE`**, the single constant) |
+| Guardrails | `guardrails/contextBuilder.ts` (L1), `systemPrompt.ts` (L2), `grounding.ts` (L3), `outputValidator.ts` (L4), `escalation.ts`, `inputFilter.ts`, `messages.ts` (**`FALLBACK_MESSAGE`**; summary sections use `sectionFallbackMessage`, which names the section's topic, e.g. "your routine", instead of "that") |
 | Wiring | `flow/services.ts`, `flow/ResultsFlowContext.tsx`, `app/results/*` |
 
 ## TTS sync approach
 
 The engine exposes only per-utterance completion. The narrator therefore splits each section's validated `spokenText` into sentences and plays **each sentence as its own utterance**. This gives **sentence-level** sync driven entirely by real playback events, with no timers or estimated durations:
 
-- A section's first sentence starting fires `onSectionStart`, which auto-scrolls to the section and highlights it. Each sentence fires `onSentenceStart`, which updates the caption bar.
+The results screen has two parts. First comes a **highlight reel**: one animated scene per section (big numbers, icons, scan and product images), played while the voice reads that section. Then comes the **written summary**, with every section's full `displayText`. The highlights are deliberately redundant with the summary: `spokenText` is built in code from the section title plus its full `displayText` (`spokenFor` in `summary/speech.ts`), so the voice reads everything the summary shows. The model writes only `displayText`. List lines become their own sentences ("Step 1: …"). Every number and image in a scene comes from the plan (`summary/highlights.ts`), never from model text.
+
+- A section's first sentence starting fires `onSectionStart`, which switches the reel to that section's scene. The current sentence is shown as a caption.
+- The user steps through the highlights with **Back** and **Next**; nothing advances on its own (`Narrator` with `autoAdvance: false`). When a section finishes it waits in `sectionEnded` with its last caption up, and Next is highlighted. On the last highlight, Next becomes "See summary". **Skip** stops narration and opens the written summary at any point. The summary has a "Watch highlights again" button.
 - While one sentence plays, the next is synthesized, to keep the gaps between them short.
 - Skip, stop, and dispose bump a run counter, so a callback from interrupted audio is ignored. Interrupted and prefetched audio is always released.
 - If a section is still generating when narration reaches it, the narrator goes to `waiting` and resumes as soon as that section validates. Narration starts once section 1 validates.
-- When a screen reader is on, narration doesn't auto-start, so it won't talk over the screen reader. The user presses Play.
-- With reduced motion on, scrolling jumps without animation and the image fade is skipped.
-- Backgrounding pauses narration. Leaving the screen stops it and releases audio. Chat "read aloud" follows the same rules.
+- When a screen reader is on, the reel is skipped and the written summary opens directly, so the app won't talk over the screen reader.
+- With reduced motion on, scenes appear without animation.
+- If the voice engine fails (for example in Expo Go, which has no Sherpa), `withSilentFallback` switches to captions-only playback. Each caption stays up for about as long as it would take to say. This is the only place timers are used.
+- Backgrounding pauses narration, and coming back resumes it. Leaving the screen stops it and releases audio. Chat "read aloud" pauses and stops the same way.
 
 ## Assumptions
 

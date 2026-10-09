@@ -57,7 +57,8 @@ describe('rule-based escalation triggers', () => {
     for await (const s of generateSummary(plan, context(), { llm: makeLlm(), repository: repository(), knownBrands: [] })) sections.push(s);
     const professional = sections.find((s) => s.id === 'professional')!;
     expect(professional.displayText.startsWith(ESCALATION_MESSAGES.uncertainScan)).toBe(true);
-    expect(professional.spokenText.startsWith(ESCALATION_MESSAGES.uncertainScan)).toBe(true);
+    // Read straight after the section title.
+    expect(professional.spokenText.startsWith(`${professional.title}. ${ESCALATION_MESSAGES.uncertainScan}`)).toBe(true);
   });
 
   it('chat answers escalations with the fixed message without calling the model', async () => {
