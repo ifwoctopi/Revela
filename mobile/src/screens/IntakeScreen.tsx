@@ -6,6 +6,7 @@ import {
 
 import { Reveal } from '../../components/motion';
 import { HandMark } from '../../components/ui';
+import { HomeButton } from '../components/HomeButton';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { checkTextForEscalation, type Escalation } from '../guardrails/escalation';
 import { applyAnswer } from '../intake/extract';
@@ -78,7 +79,8 @@ export function IntakeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <View style={styles.header}>
-          <Text style={styles.kicker}>Before your scan</Text>
+          <HomeButton iconOnly />
+          <Text style={[styles.kicker, styles.flex]}>Before your scan</Text>
           <Text style={styles.progress} accessibilityLabel={`Question ${step + 1} of ${INTAKE_QUESTIONS.length}`}>
             {Math.min(step + 1, INTAKE_QUESTIONS.length)} / {INTAKE_QUESTIONS.length}
           </Text>
@@ -163,7 +165,7 @@ export function IntakeScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 28 },
   kicker: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.colors.primary, textTransform: 'uppercase' },
   progress: { color: theme.colors.mutedText, fontWeight: '700' },
   thread: { padding: 20, gap: 10 },

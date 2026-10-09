@@ -1,5 +1,12 @@
 type AuthResult = { ok: true } | { ok: false; message: string };
 
+// In-memory for the prototype: every launch starts at the welcome screen.
+let signedIn = false;
+
+export function isSignedIn() {
+  return signedIn;
+}
+
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   await new Promise((resolve) => setTimeout(resolve, 250));
 
@@ -8,5 +15,6 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   }
 
   // Prototype only. Replace with Supabase Auth later.
+  signedIn = true;
   return { ok: true };
 }

@@ -1,9 +1,9 @@
 // Login hero: the Révéla hand signs "I love you".
 // The ASL sign combines three letters — I (pinky), L (thumb + index) and
 // Y (thumb + pinky) — so each letter blooms beside the fingers that form it,
-// the three fold into the hand, and the words appear. Then the hand keeps a
-// gentle breathing float with hearts drifting up, and the tagline lands:
-// "Love your skin".
+// the three fold into the hand, and an "I + L + Y in ASL" caption appears. Then the hand keeps a
+// gentle breathing float with hearts drifting up. (The "Love your skin"
+// tagline lives on the launch splash.)
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -37,7 +37,6 @@ export function SignHello({ height = 230, onSigned }: { height?: number; onSigne
   const letters = React.useRef(LETTERS.map(() => new Animated.Value(0))).current;
   const merge = React.useRef(new Animated.Value(0)).current;
   const words = React.useRef(new Animated.Value(0)).current;
-  const tagline = React.useRef(new Animated.Value(0)).current;
   const float = React.useRef(new Animated.Value(0)).current;
   const ring = React.useRef(new Animated.Value(0)).current;
   const hearts = React.useRef(HEARTS.map(() => new Animated.Value(0))).current;
@@ -46,12 +45,12 @@ export function SignHello({ height = 230, onSigned }: { height?: number; onSigne
 
   React.useEffect(() => {
     if (reduce) {
-      [enter, merge, words, tagline].forEach((v) => v.setValue(1));
+      [enter, merge, words].forEach((v) => v.setValue(1));
       letters.forEach((v) => v.setValue(1));
       signedRef.current?.();
       return;
     }
-    [enter, wave, merge, words, tagline, float, ring].forEach((v) => v.setValue(0));
+    [enter, wave, merge, words, float, ring].forEach((v) => v.setValue(0));
     letters.forEach((v) => v.setValue(0));
     hearts.forEach((v) => v.setValue(0));
 
@@ -71,13 +70,11 @@ export function SignHello({ height = 230, onSigned }: { height?: number; onSigne
         letters.map((v) => Animated.spring(v, { toValue: 1, friction: 5, tension: 90, ...native })),
       ),
       Animated.delay(450),
-      // They fold into the hand and the meaning appears.
+      // They fold into the hand and the caption appears.
       Animated.parallel([
         Animated.timing(merge, { toValue: 1, duration: 520, easing: Easing.in(Easing.back(1.4)), ...native }),
         Animated.timing(words, { toValue: 1, duration: 600, delay: 320, easing: Easing.out(Easing.cubic), ...native }),
       ]),
-      // "I love you" turns toward the user: love your skin.
-      Animated.spring(tagline, { toValue: 1, friction: 6, tension: 50, delay: 250, ...native }),
     ]);
 
     const loops: Animated.CompositeAnimation[] = [];
@@ -110,7 +107,7 @@ export function SignHello({ height = 230, onSigned }: { height?: number; onSigne
       intro.stop();
       loops.forEach((l) => l.stop());
     };
-  }, [reduce, enter, wave, letters, merge, words, tagline, float, ring, hearts]);
+  }, [reduce, enter, wave, letters, merge, words, float, ring, hearts]);
 
   const handStyle = {
     opacity: enter.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] }),
@@ -126,7 +123,7 @@ export function SignHello({ height = 230, onSigned }: { height?: number; onSigne
   };
 
   return (
-    <View style={[styles.wrap, { height: height + 110 }]} accessible accessibilityRole="image" accessibilityLabel="A hand signing I love you in American Sign Language">
+    <View style={[styles.wrap, { height: height + 34 }]} accessible accessibilityRole="image" accessibilityLabel="A hand signing I love you in American Sign Language">
       <View style={[styles.stage, { width: width * 1.9, height }]}>
         {/* Soft halo and an expanding ring behind the hand. */}
         <View style={[styles.halo, { width: height * 1.05, height: height * 1.05, borderRadius: height }]} />
@@ -207,22 +204,7 @@ export function SignHello({ height = 230, onSigned }: { height?: number; onSigne
           },
         ]}
       >
-        <Text style={styles.wordsText}>I love you</Text>
         <Text style={styles.wordsSub}>I + L + Y in ASL</Text>
-      </Animated.View>
-
-      <Animated.View
-        style={[
-          styles.tagline,
-          {
-            opacity: tagline,
-            transform: [{ scale: tagline.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }],
-          },
-        ]}
-      >
-        <Ionicons name="heart" size={12} color={theme.colors.copper} />
-        <Text style={styles.taglineText}>Love your skin</Text>
-        <Ionicons name="heart" size={12} color={theme.colors.copper} />
       </Animated.View>
     </View>
   );
@@ -240,11 +222,5 @@ const styles = StyleSheet.create({
   },
   letterText: { fontSize: 22, fontWeight: '900', color: theme.colors.ginger },
   words: { alignItems: 'center', marginTop: 8 },
-  wordsText: { fontSize: 26, fontWeight: '900', color: theme.colors.cream, letterSpacing: 0.5 },
-  tagline: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 16, paddingVertical: 7,
-    borderRadius: 999, borderWidth: 1, borderColor: 'rgba(208, 112, 58, 0.5)', backgroundColor: 'rgba(208, 112, 58, 0.14)',
-  },
-  taglineText: { color: theme.colors.cream, fontSize: 15, fontWeight: '800', fontStyle: 'italic', letterSpacing: 0.5 },
-  wordsSub: { fontSize: 12, fontWeight: '700', color: theme.colors.onDarkMuted, letterSpacing: 1.5, marginTop: 2, textTransform: 'uppercase' },
+  wordsSub: { fontSize: 12, fontWeight: '700', color: theme.colors.onDarkMuted, letterSpacing: 1.5, textTransform: 'uppercase' },
 });

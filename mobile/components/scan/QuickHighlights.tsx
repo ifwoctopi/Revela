@@ -12,6 +12,7 @@ import { SHORT_DISCLAIMER } from '../../safety/disclaimer';
 import { prepareSpeech } from '../../services/tts';
 import type { PreparedSpeech, SpeechEngine } from '../../src/narration/narrator';
 import { withSilentFallback } from '../../src/narration/silentSpeech';
+import { HomeButton } from '../../src/components/HomeButton';
 import { splitSentences, toSpeakable } from '../../src/summary/speech';
 import type { Scan } from '../../types/scan';
 import { useReduceMotion } from '../motion';
@@ -74,6 +75,7 @@ export function QuickHighlights({ scan, onDone }: { scan: Scan; onDone(): void }
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.top}>
+        <HomeButton iconOnly onDark />
         <View style={styles.segments} accessibilityLabel={`Highlight ${index + 1} of ${scenes.length}`}>
           {scenes.map((_, i) => (
             <View key={i} style={styles.segment}>
@@ -301,7 +303,7 @@ function SceneView({ scene, reduce }: { scene: QuickScene; reduce: boolean }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.espresso },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 16 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 28 },
   segments: { flex: 1, flexDirection: 'row', gap: 4 },
   segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: GLASS, overflow: 'hidden' },
   segmentFill: { height: 4, backgroundColor: INK },

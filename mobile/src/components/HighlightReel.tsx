@@ -7,6 +7,7 @@ import React from 'react';
 import { Animated, Easing, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { ProductImage } from './ProductImage';
+import { HomeButton } from './HomeButton';
 import { ScanIllustration, parseScanRef } from './ScanIllustration';
 import type { HighlightChip, HighlightScene, HighlightStat } from '../summary/highlights';
 import type { ResultsPlan } from '../summary/plan';
@@ -46,6 +47,7 @@ export function HighlightReel({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.top}>
+        <HomeButton iconOnly onDark />
         <View style={styles.progress} accessibilityLabel={sceneIndex === null ? 'Preparing highlights' : `Highlight ${sceneIndex + 1} of ${sectionCount}`}>
           {Array.from({ length: sectionCount }, (_, i) => (
             <View key={i} style={[styles.segment, sceneIndex !== null && i <= sceneIndex && styles.segmentDone]} />
@@ -299,7 +301,7 @@ function Preparing({ reduceMotion, ready, total }: { reduceMotion: boolean; read
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.primaryDark },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 16 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 28 },
   progress: { flex: 1, flexDirection: 'row', gap: 4 },
   segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: GLASS },
   segmentDone: { backgroundColor: INK },

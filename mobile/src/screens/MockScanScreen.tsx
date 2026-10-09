@@ -7,6 +7,7 @@ import { PressableScale, Reveal, useReduceMotion } from '../../components/motion
 import { IconBadge } from '../../components/ui';
 
 import { ScanIllustration } from '../components/ScanIllustration';
+import { HomeButton } from '../components/HomeButton';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { theme } from '../../constants/theme';
 
@@ -43,6 +44,9 @@ export function MockScanScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <HomeButton />
+      </View>
       <View style={styles.container}>
         <Reveal>
           <IconBadge name="scan" size={52} />
@@ -103,6 +107,7 @@ export function MockScanScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.background },
+  header: { paddingHorizontal: 24, paddingTop: 28 },
   container: { flex: 1, padding: 24, gap: 14, justifyContent: 'center' },
   kicker: { fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.colors.primary, textTransform: 'uppercase' },
   title: { fontSize: 28, fontWeight: '800', color: theme.colors.text },
