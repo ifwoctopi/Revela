@@ -8,53 +8,67 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function runETL() {
   try {
-    console.log('Fetching skincare products from Open Beauty Facts...');
+    console.log('Starting full database sync from Open Beauty Facts...');
     
-    // Fetching the first 250 skincare products (you can increase page_size or loop through pages later)
-    const response = await fetch('https://world.openbeautyfacts.org/category/skincare.json?page_size=250');
-    
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    const rawData = await response.json();
+    let page = 1;
+    let keepFetching = true;
+    let totalProcessed = 0;
 
-    console.log(`Extracting data for ${rawData.products.length} products...`);
-    const productList = [];
-    
-    for (const product of rawData.products) {
-      // Skip products that are missing a barcode or a name
-      if (!product.code || !product.product_name) continue;
-
-      productList.push({
-        barcode: product.code,
-        name: product.product_name,
-        brand: product.brands || 'Unknown Brand',
-        // Grabs the plain text ingredient list (e.g., "Water, Glycerin, Niacinamide...")
-        ingredients_text: product.ingredients_text_en || product.ingredients_text || 'Ingredients not listed',
-        image_url: product.image_front_url || null
-      });
-    }
-
-    console.log(`Found ${productList.length} valid products. Upserting into Supabase...`);
-    
-    // Upload in batches to prevent database timeouts
-    const BATCH_SIZE = 100;
-    for (let i = 0; i < productList.length; i += BATCH_SIZE) {
-      const batch = productList.slice(i, i + BATCH_SIZE);
+    while (keepFetching) {
+      console.log(`\nFetching page ${page}...`);
       
-      const { error } = await supabase
-        .from('products')
-        .upsert(batch, { onConflict: 'barcode' }); 
+      // Fetch 250 products at a time, iterating the page variable each loop
+      const response = await fetch(`https://world.openbeautyfacts.org/category/skincare.json?page_size=250&page=${page}`);
+      
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const rawData = await response.json();
 
-      if (error) {
-        console.error(`Error uploading batch ${i}:`, error.message);
-      } else {
-        console.log(`Successfully uploaded batch ${i} to ${i + batch.length}`);
+      // If the API returns an empty array, we've reached the end of the database
+      if (!rawData.products || rawData.products.length === 0) {
+        console.log('Reached the end of the API database.');
+        keepFetching = false;
+        break;
       }
+
+      const productList = [];
+      for (const product of rawData.products) {
+        if (!product.code || !product.product_name) continue;
+
+        productList.push({
+          barcode: product.code,
+          name: product.product_name,
+          brand: product.brands || 'Unknown Brand',
+          ingredients_text: product.ingredients_text_en || product.ingredients_text || 'Ingredients not listed',
+          image_url: product.image_front_url || null
+        });
+      }
+
+      if (productList.length > 0) {
+        console.log(`Found ${productList.length} valid products on page ${page}. Upserting...`);
+        
+        // Supabase easily handles 250 records per request, so we upsert the whole page at once
+        const { error } = await supabase
+          .from('products')
+          .upsert(productList, { onConflict: 'barcode' }); 
+
+        if (error) {
+          console.error(`Error uploading page ${page}:`, error.message);
+        } else {
+          totalProcessed += productList.length;
+          console.log(`Success! Total synced so far: ${totalProcessed}`);
+        }
+      } else {
+         console.log(`No valid products on page ${page}, skipping upsert.`);
+      }
+
+      // Move to the next page for the next loop iteration
+      page++;
     }
 
-    console.log('🎉 Product Pipeline Complete! Supabase is fully synced.');
+    console.log(`\n🎉 Pipeline Complete! Fully synced and updated ${totalProcessed} total products.`);
 
   } catch (error) {
-    console.error('❌ Pipeline Failed:', error.message);
+    console.error('\n❌ Pipeline Failed:', error.message);
   }
 }
 
