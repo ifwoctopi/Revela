@@ -22,7 +22,7 @@ export const MAX_SECTION_RETRIES = 2;
  * (their facts say "use only these"), so their templates say the same thing
  * and skip a slow on-device model call each.
  */
-export const MODEL_WRITTEN_SECTIONS: ReadonlySet<SectionId> = new Set<SectionId>(['overview', 'contributing', 'products']);
+export const MODEL_WRITTEN_SECTIONS: ReadonlySet<SectionId> = new Set<SectionId>(['overview', 'contributing']);
 
 /**
  * TEMPORARY, while debugging TTS on the last slide: the professional signs are

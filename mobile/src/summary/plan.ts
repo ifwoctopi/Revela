@@ -8,6 +8,8 @@
 
 import { checkScanForEscalation, type Escalation } from '../guardrails/escalation';
 import type { UserContext } from '../intake/userContext';
+import { avoidTerms, evidenceFor, hasAnyTerm, targetsFor, type IngredientTarget, type ProductEvidence } from '../knowledge/recommend';
+import type { KnowledgeRule } from '../knowledge/types';
 import { CONDITION_LABELS } from '../llm/prompt';
 import { displayProductName, isFaceCare, productKind, type ProductKind } from '../products/classify';
 import {
@@ -46,6 +48,8 @@ export interface PlannedProduct {
   frequency: string;
   imageRef: string;
   imagePath: string | null;
+  /** Why the synced ingredient rules back this product; empty when chosen by the built-in rules. */
+  evidence?: ProductEvidence[];
 }
 
 export interface RoutineStepPlan {
@@ -69,16 +73,6 @@ export const HEDGE_BELOW_CONFIDENCE = 0.7;
 
 const TIER_BY_SEVERITY: Record<Severity, Tier> = { mild: 'gentle', moderate: 'targeted', severe: 'refer' };
 const STRONG_ACTIVES: ActiveId[] = ['retinoid', 'aha', 'benzoyl_peroxide'];
-
-/** Preferred actives per condition, best first. */
-const PREFERRED_ACTIVES: Record<ConditionName, ActiveId[]> = {
-  acne: ['salicylic_acid', 'niacinamide', 'azelaic_acid', 'benzoyl_peroxide', 'zinc_pca', 'tea_tree'],
-  hyperpigmentation: ['niacinamide', 'vitamin_c', 'azelaic_acid', 'tranexamic_acid', 'arbutin', 'aha', 'retinoid'],
-  redness: ['centella', 'niacinamide', 'azelaic_acid', 'panthenol', 'allantoin', 'ceramides'],
-  dryness: ['ceramides', 'hyaluronic_acid', 'squalane', 'panthenol'],
-  oily_skin: ['niacinamide', 'zinc_pca', 'salicylic_acid'],
-  dark_circles: ['caffeine'],
-};
 
 const TIMELINES: Record<ConditionName, string> = {
   acne: 'Breakouts usually settle after six to eight weeks of steady use.',
@@ -107,10 +101,42 @@ const PROFESSIONAL_SIGNS = [
   'no improvement after three months of consistent care',
 ];
 
+/** One eligible product a selector may choose. All safety filtering has already happened. */
+export interface SelectionOption {
+  /** The product barcode; a selector must answer with one of these. */
+  id: string;
+  name: string;
+  brand: string;
+  /** Start of the ingredient list. */
+  ingredients: string;
+  /** Synced-rule evidence lines for this product, e.g. "Salicylic acid (0.5-2%; FDA OTC monograph)". */
+  evidence: string[];
+}
+
+/** One routine step a selector chooses a product for. */
+export interface SelectionSlot {
+  /** "treatment:<condition>", "cleanser", "moisturizer" or "sunscreen". */
+  slot: string;
+  role: Role;
+  condition: ConditionName | null;
+  label: string;
+  options: SelectionOption[];
+}
+
+/** Maps slot to chosen option id. Returns null to keep the default ranking. */
+export type ProductSelector = (slots: SelectionSlot[]) => Promise<Record<string, string> | null>;
+
+const MAX_OPTIONS = 5;
+const MAX_INGREDIENT_CHARS = 160;
+
 export interface PlanOptions {
+  /** Lets a model pick among eligible candidates; picks outside the candidates are ignored. */
+  selector?: ProductSelector;
   /** Prefer products whose image is available offline. */
   hasOfflineImage?: (barcode: string) => boolean;
   maxTreatments?: number;
+  /** Synced ingredients_and_conditions rules. They steer which products are picked and are cited as evidence. */
+  rules?: readonly KnowledgeRule[];
 }
 
 function findings(summary: SessionSummary, context: UserContext): Finding[] {
@@ -186,28 +212,52 @@ export async function buildResultsPlan(
   repository: ProductRepository,
   options: PlanOptions = {},
 ): Promise<ResultsPlan> {
-  const { hasOfflineImage = () => false, maxTreatments = 2 } = options;
+  const { hasOfflineImage = () => false, maxTreatments = 2, rules = [] } = options;
   const found = findings(summary, context);
-  const excluded = excludedActives(context);
   const chosen: PlannedProduct[] = [];
   const used = new Set<string>();
+  const avoid = avoidTerms(rules, context, found.map((f) => f.condition));
+  const allTargets = found.flatMap((f) => targetsFor(f.condition, rules, context));
 
+  type Filter = { ingredientTerms?: string[]; categoryTerms?: string[] };
+  type Accept = (actives: ActiveId[], product: ProductRecord) => boolean;
+
+  // Wash-off cleansers and sunscreens aren't judged on treatment ingredients.
+  const targetsForRole = (role: Role) => (role === 'treatment' || role === 'moisturizer' ? allTargets : []);
+
+  /** Eligible products for a step, best first by the default ranking. */
+  const candidatesFor = async (role: Role, kind: ProductKind, filter: Filter, accept: Accept) => {
+    const pool = await repository.findFaceCare(filter, 200);
+    const evidenceTargets = targetsForRole(role);
+    const evidenceCount = (p: ProductRecord) => evidenceFor(p.ingredients, evidenceTargets).length;
+    return pool
+      .filter((p) => !used.has(p.barcode) && productKind(p.categories, p.name) === kind && isEligibleProduct(p, context))
+      // Irritants from the synced "avoid" rules, for sensitive or redness-prone skin.
+      .filter((p) => avoid.length === 0 || !hasAnyTerm(p.ingredients, avoid))
+      .map((p) => ({ p, kind, actives: detectActives(p.ingredients) }))
+      .filter(({ actives, p }) => accept(actives, p))
+      .sort(
+        (a, b) =>
+          evidenceCount(b.p) - evidenceCount(a.p) ||
+          Number(hasOfflineImage(b.p.barcode)) - Number(hasOfflineImage(a.p.barcode)),
+      );
+  };
+  type Candidate = Awaited<ReturnType<typeof candidatesFor>>[number];
+
+  /** Plans a product for a step: the preferred barcode if it is a valid candidate, else the top-ranked one. */
   const pick = async (
     role: Role,
     kind: ProductKind,
-    filter: { ingredientTerms?: string[]; categoryTerms?: string[] },
-    accept: (actives: ActiveId[]) => boolean,
+    filter: Filter,
+    accept: Accept,
     addresses: ConditionName[],
+    preferred?: string,
   ) => {
-    const pool = await repository.findFaceCare(filter, 200);
-    const candidates = pool
-      .filter((p) => !used.has(p.barcode) && productKind(p.categories, p.name) === kind && isEligibleProduct(p, context))
-      .map((p) => ({ p, actives: detectActives(p.ingredients) }))
-      .filter(({ actives }) => accept(actives))
-      .sort((a, b) => Number(hasOfflineImage(b.p.barcode)) - Number(hasOfflineImage(a.p.barcode)));
-    const hit = candidates[0];
+    const candidates = await candidatesFor(role, kind, filter, accept);
+    const hit = candidates.find((c) => c.p.barcode === preferred) ?? candidates[0];
     if (!hit) return null;
     used.add(hit.p.barcode);
+    const evidenceTargets = targetsForRole(role);
     const frequencies = hit.actives.filter((a) => ACTIVES[a].concerns.length > 0).map((a) => ACTIVES[a].frequency);
     const planned: PlannedProduct = {
       ref: `P${chosen.length + 1}`,
@@ -222,43 +272,113 @@ export async function buildResultsPlan(
       frequency: frequencies[0] ?? (kind === 'sunscreen' ? ACTIVES.mineral_uv_filter.frequency : 'once or twice a day'),
       imageRef: `product:${hit.p.barcode}`,
       imagePath: hit.p.imagePath,
+      evidence: evidenceTargets.length ? evidenceFor(hit.p.ingredients, evidenceTargets) : [],
     };
     chosen.push(planned);
     return planned;
   };
 
-  // Treatments: one per top condition, in priority order.
-  for (const finding of found.slice(0, maxTreatments)) {
-    const allowed = PREFERRED_ACTIVES[finding.condition].filter(
-      (a) => !excluded.has(a) && !(finding.tier !== 'targeted' && STRONG_ACTIVES.includes(a)),
+  // Treatment ingredients come only from the synced ingredients_and_conditions
+  // rules (no built-in fallback): none matching means no treatment is picked.
+  const treatmentTargets = (finding: Finding): IngredientTarget[] =>
+    targetsFor(finding.condition, rules, context).filter(
+      (t) => finding.tier === 'targeted' || !/retin|adapalene|benzoyl/i.test(t.name),
     );
-    for (const active of allowed) {
-      const filter = { ingredientTerms: ACTIVES[active].patterns };
+  const treatmentCandidates = async (finding: Finding): Promise<Candidate[]> => {
+    const seen = new Set<string>();
+    const out: Candidate[] = [];
+    for (const target of treatmentTargets(finding)) {
+      const filter = { ingredientTerms: target.terms };
+      const has = (_: ActiveId[], p: ProductRecord) => hasAnyTerm(p.ingredients, target.terms);
+      for (const kind of ['treatment', 'moisturizer'] as const) {
+        for (const c of await candidatesFor('treatment', kind, filter, has)) {
+          if (!seen.has(c.p.barcode)) {
+            seen.add(c.p.barcode);
+            out.push(c);
+          }
+        }
+      }
+    }
+    return out;
+  };
+
+  const hasCondition = (c: ConditionName) => found.some((f) => f.condition === c);
+  const noStrong = (a: ActiveId[]) => !a.some((x) => STRONG_ACTIVES.includes(x));
+  const preferMineral = context.skinType === 'sensitive' || context.sensitivities.includes('fragrance');
+  const baseSteps: { slot: string; label: string; role: Role; filter: Filter; accept: Accept; addresses: ConditionName[] }[] = [
+    { slot: 'cleanser', label: 'Cleanser', role: 'cleanser', filter: { categoryTerms: ['cleans', 'wash', 'foam'] }, accept: noStrong, addresses: [] },
+    {
+      slot: 'moisturizer',
+      label: 'Moisturizer',
+      role: 'moisturizer',
+      filter: hasCondition('dryness') ? { ingredientTerms: [...ACTIVES.ceramides.patterns, ...ACTIVES.hyaluronic_acid.patterns] } : { categoryTerms: ['moistur', 'cream'] },
+      accept: noStrong,
+      addresses: hasCondition('dryness') ? ['dryness'] : [],
+    },
+    {
+      slot: 'sunscreen',
+      label: 'Sunscreen',
+      role: 'sunscreen',
+      filter: { ingredientTerms: preferMineral ? ACTIVES.mineral_uv_filter.patterns : [...ACTIVES.mineral_uv_filter.patterns, ...ACTIVES.chemical_uv_filter.patterns] },
+      accept: (a) => a.includes('mineral_uv_filter') || (!preferMineral && a.includes('chemical_uv_filter')),
+      addresses: [],
+    },
+  ];
+
+  // Optionally let a model choose among the eligible candidates of each step.
+  const treatedFindings = found.slice(0, maxTreatments);
+  const treatmentPools = new Map<string, Candidate[]>();
+  let choices: Record<string, string> | null = null;
+  if (options.selector) {
+    const slots: SelectionSlot[] = [];
+    const toOption = (c: Candidate, role: Role): SelectionOption => ({
+      id: c.p.barcode,
+      name: displayProductName(c.p.name, c.p.brand),
+      brand: c.p.brand,
+      ingredients: c.p.ingredients.slice(0, MAX_INGREDIENT_CHARS),
+      evidence: evidenceFor(c.p.ingredients, targetsForRole(role)).map((e) => `${e.ingredient} (${e.strength}; ${e.evidenceLevel})`),
+    });
+    for (const finding of treatedFindings) {
+      const pool = await treatmentCandidates(finding);
+      treatmentPools.set(finding.condition, pool);
+      if (pool.length) {
+        slots.push({
+          slot: `treatment:${finding.condition}`, role: 'treatment', condition: finding.condition, label: `Treatment for ${finding.label}`,
+          options: pool.slice(0, MAX_OPTIONS).map((c) => toOption(c, 'treatment')),
+        });
+      }
+    }
+    for (const step of baseSteps) {
+      const pool = await candidatesFor(step.role, step.role, step.filter, step.accept);
+      if (pool.length) {
+        slots.push({ slot: step.slot, role: step.role, condition: null, label: step.label, options: pool.slice(0, MAX_OPTIONS).map((c) => toOption(c, step.role)) });
+      }
+    }
+    choices = slots.some((s) => s.options.length > 1) ? await options.selector(slots).catch(() => null) : null;
+  }
+
+  // Treatments: one per top condition, in priority order.
+  for (const finding of treatedFindings) {
+    const preferred = choices?.[`treatment:${finding.condition}`];
+    const chosenCandidate = preferred ? (treatmentPools.get(finding.condition) ?? []).find((c) => c.p.barcode === preferred) : undefined;
+    if (chosenCandidate) {
+      const terms = treatmentTargets(finding).flatMap((t) => t.terms);
+      const done = await pick('treatment', chosenCandidate.kind, { ingredientTerms: terms }, (_, p) => hasAnyTerm(p.ingredients, terms), [finding.condition], preferred);
+      if (done) continue;
+    }
+    for (const target of treatmentTargets(finding)) {
+      const filter = { ingredientTerms: target.terms };
+      const has = (_: ActiveId[], p: ProductRecord) => hasAnyTerm(p.ingredients, target.terms);
       const planned =
-        (await pick('treatment', 'treatment', filter, (a) => a.includes(active), [finding.condition])) ??
-        (await pick('treatment', 'moisturizer', filter, (a) => a.includes(active), [finding.condition]));
+        (await pick('treatment', 'treatment', filter, has, [finding.condition])) ??
+        (await pick('treatment', 'moisturizer', filter, has, [finding.condition]));
       if (planned) break;
     }
   }
 
-  const hasCondition = (c: ConditionName) => found.some((f) => f.condition === c);
-  const noStrong = (a: ActiveId[]) => !a.some((x) => STRONG_ACTIVES.includes(x));
-  await pick('cleanser', 'cleanser', { categoryTerms: ['cleans', 'wash', 'foam'] }, noStrong, []);
-  await pick(
-    'moisturizer',
-    'moisturizer',
-    hasCondition('dryness') ? { ingredientTerms: [...ACTIVES.ceramides.patterns, ...ACTIVES.hyaluronic_acid.patterns] } : { categoryTerms: ['moistur', 'cream'] },
-    noStrong,
-    hasCondition('dryness') ? ['dryness'] : [],
-  );
-  const preferMineral = context.skinType === 'sensitive' || context.sensitivities.includes('fragrance');
-  await pick(
-    'sunscreen',
-    'sunscreen',
-    { ingredientTerms: preferMineral ? ACTIVES.mineral_uv_filter.patterns : [...ACTIVES.mineral_uv_filter.patterns, ...ACTIVES.chemical_uv_filter.patterns] },
-    (a) => a.includes('mineral_uv_filter') || (!preferMineral && a.includes('chemical_uv_filter')),
-    [],
-  );
+  for (const step of baseSteps) {
+    await pick(step.role, step.role, step.filter, step.accept, step.addresses, choices?.[step.slot]);
+  }
 
   // A step with no eligible product still appears, without a product.
   const step = (label: string, role: Role): RoutineStepPlan => ({

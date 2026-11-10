@@ -17,12 +17,15 @@ import {
 import { PressableScale, useReduceMotion } from '../components/motion';
 import { SignHello } from '../components/SignHello';
 import { theme } from '../constants/theme';
-import { signIn } from '../services/auth';
+import { syncKnowledge } from '../src/knowledge/sync';
+import { signIn, signUp } from '../services/auth';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('demo@skubba.app');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<'email' | 'password' | null>(null);
   const reduce = useReduceMotion();
@@ -53,14 +56,21 @@ export default function LoginScreen() {
   async function handleLogin() {
     if (busy) return;
     setError('');
+    setNotice('');
     setBusy(true);
-    const result = await signIn(email, password);
+    const result = mode === 'signIn' ? await signIn(email, password) : await signUp(email, password);
     setBusy(false);
     if (!result.ok) {
       setError(result.message ?? 'Unable to sign in.');
       nudge();
       return;
     }
+    if (result.needsConfirmation) {
+      setNotice('Check your email to confirm your account, then sign in.');
+      setMode('signIn');
+      return;
+    }
+    void syncKnowledge();
     router.replace('/(tabs)/home');
   }
 
@@ -86,8 +96,10 @@ export default function LoginScreen() {
               },
             ]}
           >
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to see your checks, routine and journal.</Text>
+            <Text style={styles.title}>{mode === 'signIn' ? 'Welcome back' : 'Create account'}</Text>
+            <Text style={styles.subtitle}>
+              {mode === 'signIn' ? 'Sign in to see your checks, routine and journal.' : 'Sign up to keep your checks, routine and journal.'}
+            </Text>
 
             <View style={[styles.field, focused === 'email' && styles.fieldFocused]}>
               <Ionicons name="mail-outline" size={18} color={focused === 'email' ? theme.colors.primary : theme.colors.mutedText} />
@@ -113,6 +125,8 @@ export default function LoginScreen() {
                 onFocus={() => setFocused('password')}
                 onBlur={() => setFocused(null)}
                 secureTextEntry
+                autoCapitalize="none"
+                autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
                 style={styles.input}
                 placeholder="Password"
                 placeholderTextColor={theme.colors.mutedText}
@@ -123,19 +137,31 @@ export default function LoginScreen() {
             </View>
 
             {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
+            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-            <PressableScale style={styles.button} onPress={handleLogin} accessibilityRole="button" accessibilityLabel="Sign in">
+            <PressableScale style={styles.button} onPress={handleLogin} accessibilityRole="button" accessibilityLabel={mode === 'signIn' ? 'Sign in' : 'Sign up'}>
               {busy ? (
                 <ActivityIndicator color={theme.colors.onDark} />
               ) : (
                 <>
-                  <Text style={styles.buttonText}>Sign in</Text>
+                  <Text style={styles.buttonText}>{mode === 'signIn' ? 'Sign in' : 'Sign up'}</Text>
                   <Ionicons name="arrow-forward" size={18} color={theme.colors.onDark} />
                 </>
               )}
             </PressableScale>
 
-            <Text style={styles.demoText}>Demo credentials are prefilled for the prototype.</Text>
+            <PressableScale
+              onPress={() => {
+                setError('');
+                setNotice('');
+                setMode(mode === 'signIn' ? 'signUp' : 'signIn');
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.switchText}>
+                {mode === 'signIn' ? "New here? Create an account" : 'Already have an account? Sign in'}
+              </Text>
+            </PressableScale>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -185,5 +211,6 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: theme.colors.onDark, fontSize: 16, fontWeight: '800' },
   error: { color: theme.colors.danger },
-  demoText: { textAlign: 'center', color: theme.colors.mutedText, fontSize: 13 },
+  notice: { color: theme.colors.primary },
+  switchText: { textAlign: 'center', color: theme.colors.primary, fontSize: 14, fontWeight: '700', paddingVertical: 8 },
 });

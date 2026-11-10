@@ -1,0 +1,34 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.revelavision'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.revelavision"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+  sourceSets {
+    // The converted model lives with the other app assets; see tools/skin-model.
+    main.assets.srcDirs += file('../../../assets/models')
+  }
+  packagingOptions {
+    // The model is already compact; compressing it would only slow the first load.
+    jniLibs { useLegacyPackaging = false }
+  }
+  androidResources {
+    noCompress += 'onnx'
+  }
+}
+
+dependencies {
+  // Compile-only: react-native-sherpa-onnx already ships the ONNX Runtime classes and native
+  // libraries, and a second copy fails the duplicate-class check. If sherpa is ever removed,
+  // switch this to `implementation`.
+  compileOnly 'com.microsoft.onnxruntime:onnxruntime-android:1.20.0'
+  implementation 'androidx.exifinterface:exifinterface:1.3.7'
+}

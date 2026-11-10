@@ -1,6 +1,7 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { getSpeechSpeed } from '../src/settings/speechSettings';
 import type { TtsEngine } from 'react-native-sherpa-onnx/tts';
 
 type SherpaModules = typeof import('react-native-sherpa-onnx/extraction') & typeof import('react-native-sherpa-onnx/tts');
@@ -21,6 +22,7 @@ function loadSherpa(): SherpaModules {
 const MODEL_ID = 'vits-piper-en_GB-cori-high';
 const MODEL_DIR_NAME = `${MODEL_ID}`;
 const ARCHIVE = require('../tts/vits-piper-en_GB-cori-high.tar.bz2');
+
 
 let enginePromise: Promise<TtsEngine> | null = null;
 let currentPlayer: AudioPlayer | null = null;
@@ -105,7 +107,7 @@ export async function speakText(text: string, onFinished?: () => void): Promise<
 
   await stopSpeech();
   const engine = await getEngine();
-  const generated = await engine.generateSpeech(cleanText);
+  const generated = await engine.generateSpeech(cleanText, { speed: await getSpeechSpeed() });
   const cacheUri = FileSystem.cacheDirectory;
   if (!cacheUri) throw new Error('The app cache directory is unavailable.');
   const wavPath = nativePath(`${cacheUri}revela-speech-${Date.now()}.wav`);
@@ -146,7 +148,7 @@ let utteranceCounter = 0;
  */
 export async function prepareSpeech(text: string): Promise<PreparedSpeech> {
   const engine = await getEngine();
-  const generated = await engine.generateSpeech(text.trim());
+  const generated = await engine.generateSpeech(text.trim(), { speed: await getSpeechSpeed() });
   const cacheUri = FileSystem.cacheDirectory;
   if (!cacheUri) throw new Error('The app cache directory is unavailable.');
   const wavPath = nativePath(`${cacheUri}revela-utterance-${Date.now()}-${utteranceCounter++}.wav`);

@@ -131,6 +131,40 @@ async function extractWithLlm(llm: LlmClient, field: IntakeField, answer: string
 }
 
 /**
+ * True when keyword matching found nothing usable in the answer, i.e. the
+ * only case where waiting on the model can add anything.
+ */
+export function needsModelAssist(field: IntakeField, answer: string): boolean {
+  const found = extractDeterministic(field, answer);
+  const text = answer.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!text || NONE.test(text)) return false;
+  switch (field) {
+    case 'concerns': return (found.concerns ?? []).length === 0;
+    case 'routine': return (found.routineSteps ?? []).length === 0 && (found.currentActives ?? []).length === 0;
+    case 'sensitivities': return (found.unrecognizedSensitivities ?? 0) > 0;
+    case 'pregnancy': return !found.pregnancy;
+    case 'skinType': return !found.skinType;
+  }
+}
+
+/** Model-only extraction of one answer; empty on any failure. */
+export function assistWithModel(llm: LlmClient, field: IntakeField, answer: string): Promise<Partial<UserContext>> {
+  return extractWithLlm(llm, field, answer).catch(() => ({}));
+}
+
+/** Folds model-extracted values into the context, synchronously, so callers can do it without racing other updates. */
+export function mergeAssisted(context: UserContext, assisted: Partial<UserContext>): UserContext {
+  const merged: Record<string, unknown> = { ...context, updatedAt: new Date().toISOString() };
+  for (const [key, value] of Object.entries(assisted)) {
+    const current = merged[key];
+    // Arrays: union. Scalars: an existing answer wins.
+    if (Array.isArray(current) && Array.isArray(value)) merged[key] = [...current, ...value];
+    else if (current === null || current === undefined) merged[key] = value;
+  }
+  return parseUserContext(merged) ?? context;
+}
+
+/**
  * Applies one intake answer to the context. The merged result is re-validated
  * with parseUserContext, so nothing outside the schema is ever kept.
  */
@@ -141,17 +175,7 @@ export async function applyAnswer(
   llm: LlmClient | null,
 ): Promise<UserContext> {
   const deterministic = extractDeterministic(field, answer);
-  let assisted: Partial<UserContext> = {};
-  if (llm && answer.trim()) {
-    assisted = await extractWithLlm(llm, field, answer).catch(() => ({}));
-  }
-
-  const merged: Record<string, unknown> = { ...context, ...deterministic, updatedAt: new Date().toISOString() };
-  for (const [key, value] of Object.entries(assisted)) {
-    const current = merged[key];
-    // Arrays: union. Scalars: the deterministic answer wins when it found one.
-    if (Array.isArray(current) && Array.isArray(value)) merged[key] = [...current, ...value];
-    else if (current === null || current === undefined) merged[key] = value;
-  }
-  return parseUserContext(merged) ?? context;
+  const assisted = llm && answer.trim() ? await assistWithModel(llm, field, answer) : {};
+  const base = parseUserContext({ ...context, ...deterministic, updatedAt: new Date().toISOString() }) ?? context;
+  return mergeAssisted(base, assisted);
 }

@@ -1,9 +1,12 @@
 // Wires the results flow to its on-device dependencies. None of these make
-// network calls: SQLite, llama.cpp and Piper all run locally.
+// network calls: SQLite, llama.cpp and Piper all run locally. (The knowledge
+// database is filled by a separate sign-in-time sync; see knowledge/sync.ts.)
 
 import { distinctiveBrands } from '../guardrails/outputValidator';
 import type { LlmClient } from '../llm/client';
 import type { SpeechEngine } from '../narration/narrator';
+import { getKnowledgeRepository } from '../knowledge/sqliteRepository';
+import type { KnowledgeRepository } from '../knowledge/types';
 import { getProductRepository } from '../products/sqliteRepository';
 import type { ProductRepository } from '../products/types';
 import { sampleUserProfile } from '../data/mockData';
@@ -17,6 +20,8 @@ export const CURRENT_USER_ID = sampleUserProfile.user_id;
 
 export interface FlowServices {
   repository: ProductRepository;
+  /** Null if the local knowledge database couldn't be opened. */
+  knowledge: KnowledgeRepository | null;
   /** Null when the model file isn't installed (or native modules are unavailable, e.g. Expo Go). */
   llm: LlmClient | null;
   knownBrands: string[];
@@ -41,6 +46,7 @@ export function getFlowServices(): Promise<FlowServices> {
       const repository = await getProductRepository();
       return {
         repository,
+        knowledge: await getKnowledgeRepository().catch(() => null),
         llm: loadLlm(),
         knownBrands: distinctiveBrands(await repository.listBrands()),
         speech: { prepare: prepareSpeech },

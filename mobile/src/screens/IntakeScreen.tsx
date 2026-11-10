@@ -9,7 +9,7 @@ import { HandMark } from '../../components/ui';
 import { HomeButton } from '../components/HomeButton';
 import { useResultsFlow } from '../flow/ResultsFlowContext';
 import { checkTextForEscalation, type Escalation } from '../guardrails/escalation';
-import { applyAnswer } from '../intake/extract';
+import { applyAnswer, assistWithModel, mergeAssisted, needsModelAssist } from '../intake/extract';
 import { INTAKE_QUESTIONS, MAX_INTAKE_ANSWER_CHARS } from '../intake/questions';
 import { theme } from '../../constants/theme';
 
@@ -29,11 +29,23 @@ export function IntakeScreen() {
     { from: 'assistant', text: INTAKE_QUESTIONS[0].prompt },
   ]);
   const scroll = React.useRef<ScrollView>(null);
+  // Latest context, so background model results merge onto newer answers instead of overwriting them.
+  const latest = React.useRef(userContext);
+  const pendingModel = React.useRef<Promise<unknown>[]>([]);
+
+  // Load the model while the user reads the first question, so a later call doesn't pay for it.
+  React.useEffect(() => {
+    void services?.llm
+      ?.complete({ messages: [{ role: 'user', content: 'Hi' }], maxTokens: 1, temperature: 0 })
+      .catch(() => undefined);
+  }, [services]);
   const question = INTAKE_QUESTIONS[step];
 
-  const advance = React.useCallback(() => {
+  const advance = React.useCallback(async () => {
     const next = step + 1;
     if (next >= INTAKE_QUESTIONS.length) {
+      // Give any model look-ups still running a few seconds to land before the scan uses the context.
+      await Promise.race([Promise.allSettled(pendingModel.current), new Promise((resolve) => setTimeout(resolve, 4000))]);
       router.replace('/results/scan');
       return;
     }
@@ -56,13 +68,25 @@ export function IntakeScreen() {
       return;
     }
 
+    // Keyword matching answers instantly. The model only runs, in the background, when keywords found
+    // nothing, and its result is merged in when it arrives.
     setBusy(true);
     try {
-      await updateUserContext(await applyAnswer(userContext, question.field, text, services?.llm ?? null));
+      latest.current = await applyAnswer(latest.current, question.field, text, null);
+      await updateUserContext(latest.current);
     } finally {
       setBusy(false);
     }
-    advance();
+    const llm = services?.llm;
+    if (llm && needsModelAssist(question.field, text)) {
+      pendingModel.current.push(
+        assistWithModel(llm, question.field, text).then((assisted) => {
+          latest.current = mergeAssisted(latest.current, assisted);
+          return updateUserContext(latest.current);
+        }),
+      );
+    }
+    await advance();
   };
 
   const skip = () => {

@@ -7,6 +7,8 @@
 // messages are ever returned, so only they can be shown or spoken.
 
 import type { UserContext } from '../intake/userContext';
+import { retrieveKnowledge } from '../knowledge/retrieve';
+import type { KnowledgeRepository } from '../knowledge/types';
 import type { LlmClient } from '../llm/client';
 import type { ProductRepository } from '../products/types';
 import type { ResultsPlan } from '../summary/plan';
@@ -35,6 +37,8 @@ export interface ChatMessage {
 export interface ChatDeps {
   llm: LlmClient | null;
   repository: ProductRepository;
+  /** Synced reference guidance; null/absent until the first sync has run. */
+  knowledge?: KnowledgeRepository | null;
   knownBrands: readonly string[];
   context: UserContext;
   plan: ResultsPlan;
@@ -61,9 +65,13 @@ export async function answerQuestion(question: string, history: readonly ChatMes
   if (screened.kind === 'blocked' || !deps.llm) return fallback;
 
   const retrieval = await retrieveForQuestion(screened.text, deps.repository, deps.context, deps.plan, deps.knownBrands);
-  if (retrieval.unknownProduct || retrieval.unknownIngredient) return fallback;
+  const knowledge = deps.knowledge
+    ? await retrieveKnowledge(screened.text, deps.knowledge, deps.context).catch(() => ({ lines: [] as string[] }))
+    : { lines: [] as string[] };
+  // An ingredient we have no rule for is still answerable when the synced guidance covers it.
+  if (retrieval.unknownProduct || (retrieval.unknownIngredient && knowledge.lines.length === 0)) return fallback;
 
-  const facts = chatFacts(deps.context, deps.plan, deps.sections, retrieval.products, retrieval.ingredientFacts);
+  const facts = chatFacts(deps.context, deps.plan, deps.sections, retrieval.products, retrieval.ingredientFacts, knowledge.lines);
   const policy = policyFor(facts, deps.knownBrands, MAX_REPLY_CHARS);
   // Fixed replies (fallbacks, escalations, limits) are left out: a small model
   // copies them, and earlier "I don't know"s become every later answer.

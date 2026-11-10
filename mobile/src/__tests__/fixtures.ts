@@ -4,6 +4,7 @@ import { emptyUserContext, type UserContext } from '../intake/userContext';
 import type { CompletionRequest, LlmClient } from '../llm/client';
 import { MemoryProductRepository } from '../products/memoryRepository';
 import type { ProductRecord } from '../products/types';
+import type { KnowledgeRule } from '../knowledge/types';
 import type { SessionSummary } from '../types/session';
 
 const product = (barcode: string, name: string, categories: string, ingredients: string): ProductRecord => ({
@@ -51,3 +52,17 @@ export class ScriptedLlm implements LlmClient {
 }
 
 export const sectionJson = (displayText: string, productRefs: string[] = []) => JSON.stringify({ displayText, productRefs });
+
+/** Synced-rule stand-ins: treatment ingredients come only from these, never from built-in defaults. */
+export const RULES: KnowledgeRule[] = [
+  {
+    rowId: 'R-ACNE-SA', skinType: 'Any', skinSubtype: '', sensitivity: 'Any', concern: 'Breakouts / blackheads / whiteheads',
+    ingredients: 'Salicylic acid', concentrations: '0.5-2%', effects: '', evidenceLevel: 'FDA OTC monograph - strong',
+    recommendation: 'Use', regulatoryStatusUs: '', pregnancyNotes: 'Low concern', otherNotes: '',
+  },
+  {
+    rowId: 'R-ACNE-NIA', skinType: 'Any', skinSubtype: '', sensitivity: 'Any', concern: 'Breakouts',
+    ingredients: 'Niacinamide', concentrations: '2-5%', effects: '', evidenceLevel: 'Small RCTs',
+    recommendation: 'Use', regulatoryStatusUs: '', pregnancyNotes: 'Not addressed', otherNotes: '',
+  },
+];

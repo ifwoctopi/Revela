@@ -3,12 +3,13 @@ import React from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
 import { resolveProductImage } from '../products/images';
+import { useFetchProductImages } from '../products/imageSettings';
 import { theme } from '../../constants/theme';
 
 type Props = {
   barcode: string;
   imagePath: string | null;
-  /** False inside the private results flow; see products/images.ts. */
+  /** Forces downloads on. Normally false: the opt-in setting (products/imageSettings.ts) decides, since downloads reveal recommended products. */
   allowNetwork: boolean;
   size?: number;
   label: string;
@@ -16,15 +17,17 @@ type Props = {
 
 export function ProductImage({ barcode, imagePath, allowNetwork, size = 72, label }: Props) {
   const [source, setSource] = React.useState<ImageSourcePropType | null>(null);
+  const [fetchEnabled] = useFetchProductImages();
+  const network = allowNetwork || fetchEnabled;
 
   React.useEffect(() => {
     let active = true;
     setSource(null);
-    resolveProductImage(barcode, imagePath, { allowNetwork }).then((s) => active && setSource(s), () => undefined);
+    resolveProductImage(barcode, imagePath, { allowNetwork: network }).then((s) => active && setSource(s), () => undefined);
     return () => {
       active = false;
     };
-  }, [barcode, imagePath, allowNetwork]);
+  }, [barcode, imagePath, network]);
 
   const box = { width: size, height: size, borderRadius: size / 6 };
   if (!source) {

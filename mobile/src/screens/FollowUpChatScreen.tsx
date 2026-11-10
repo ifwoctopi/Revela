@@ -59,6 +59,7 @@ export function FollowUpChatScreen() {
       const reply = await answerQuestion(question, history, {
         llm: services.llm,
         repository: services.repository,
+        knowledge: services.knowledge,
         knownBrands: services.knownBrands,
         context: userContext,
         plan,

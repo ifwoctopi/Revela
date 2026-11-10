@@ -2,7 +2,7 @@ import { sectionFallbackMessage } from '../guardrails/messages';
 import { generateSummary, MAX_SECTION_RETRIES, MODEL_WRITTEN_SECTIONS } from '../summary/generate';
 import { buildResultsPlan } from '../summary/plan';
 import { SECTION_IDS, type SummarySection } from '../summary/schema';
-import { SCAN, ScriptedLlm, context, repository, sectionJson } from './fixtures';
+import { RULES, SCAN, ScriptedLlm, context, repository, sectionJson } from './fixtures';
 
 async function collect(gen: AsyncGenerator<SummarySection>) {
   const out: SummarySection[] = [];
@@ -12,7 +12,7 @@ async function collect(gen: AsyncGenerator<SummarySection>) {
 
 describe('deterministic results plan', () => {
   it('recommends only eligible face-care products from the database', async () => {
-    const plan = await buildResultsPlan(SCAN, context({ sensitivities: ['fragrance'] }), repository());
+    const plan = await buildResultsPlan(SCAN, context({ sensitivities: ['fragrance'] }), repository(), { rules: RULES });
     const barcodes = plan.products.map((p) => p.barcode);
     expect(barcodes).toContain('0000000001001'); // salicylic serum for acne
     expect(barcodes).not.toContain('0000000001008'); // fragranced cream, user is sensitive
@@ -34,20 +34,20 @@ describe('deterministic results plan', () => {
   });
 
   it('maps grades to tiers and hedges low-confidence findings', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     expect(plan.findings.find((f) => f.condition === 'acne')).toMatchObject({ tier: 'targeted', hedged: false });
     expect(plan.findings.find((f) => f.condition === 'redness')).toMatchObject({ tier: 'gentle', hedged: true });
   });
 
   it('flags conflicts with actives the user already uses', async () => {
-    const plan = await buildResultsPlan(SCAN, context({ currentActives: ['retinoid'] }), repository());
+    const plan = await buildResultsPlan(SCAN, context({ currentActives: ['retinoid'] }), repository(), { rules: RULES });
     expect(plan.cautions.some((c) => c.startsWith('With what you already use'))).toBe(true);
   });
 });
 
 describe('section generation', () => {
   it('produces all seven sections from templates when no model is installed', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     const sections = await collect(generateSummary(plan, context(), { llm: null, repository: repository(), knownBrands: [] }));
     expect(sections.map((s) => s.id)).toEqual([...SECTION_IDS]);
     expect(sections.filter((s) => s.isFallback)).toEqual([]);
@@ -55,7 +55,7 @@ describe('section generation', () => {
   });
 
   it('only calls the model for the sections it writes; the rest use templates', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     const llm = new ScriptedLlm(['not json']);
     const sections = await collect(generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] }));
     const prompted = new Set(llm.requests.map((r) => SECTION_IDS.find((id) => r.messages[1].content.includes(`"${sections.find((s) => s.id === id)!.title}"`))));
@@ -63,8 +63,23 @@ describe('section generation', () => {
     for (const s of sections) expect(Boolean(s.isFallback)).toBe(MODEL_WRITTEN_SECTIONS.has(s.id));
   });
 
+  // The shipped products section is templated; these tests exercise the retry path by letting the model write it.
+  const modelWrittenProducts = () => {
+    (MODEL_WRITTEN_SECTIONS as Set<string>).add('products');
+    return () => (MODEL_WRITTEN_SECTIONS as Set<string>).delete('products');
+  };
+
   it('regenerates when a product id does not exist, then falls back after 2 retries', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const restore = modelWrittenProducts();
+    try {
+      await regeneratesProductIds();
+    } finally {
+      restore();
+    }
+  });
+
+  async function regeneratesProductIds() {
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     const bad = sectionJson('Try this great serum for your breakouts in the evening.', ['P9']);
     const llm = new ScriptedLlm([bad]);
     const gen = generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] });
@@ -75,10 +90,19 @@ describe('section generation', () => {
     expect(products.spokenText).toBe(`Products for you. ${sectionFallbackMessage('products for you')}`);
     const productCalls = llm.requests.filter((r) => r.messages[1].content.includes('"Products for you"'));
     expect(productCalls).toHaveLength(1 + MAX_SECTION_RETRIES);
-  });
+  }
 
   it('accepts a regenerated section once the ids are valid', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const restore = modelWrittenProducts();
+    try {
+      await acceptsRegenerated();
+    } finally {
+      restore();
+    }
+  });
+
+  async function acceptsRegenerated() {
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     const serum = plan.products.find((p) => p.barcode === '0000000001001')!;
     const text = `${serum.name} has salicylic acid for your breakouts. Use it in the evening, two or three times a week to start.`;
     let productAttempts = 0;
@@ -94,10 +118,10 @@ describe('section generation', () => {
     expect(productAttempts).toBe(2);
     expect(products.isFallback).toBeUndefined();
     expect(products.productIds).toEqual([serum.barcode]);
-  });
+  }
 
   it('falls back when a planned product has disappeared from the database', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     const emptyRepo = repository();
     jest.spyOn(emptyRepo, 'getByBarcodes').mockResolvedValue([]);
     const sections = await collect(generateSummary(plan, context(), { llm: null, repository: emptyRepo, knownBrands: [] }));
@@ -105,7 +129,7 @@ describe('section generation', () => {
   });
 
   it('never lets unsafe model text into a section', async () => {
-    const plan = await buildResultsPlan(SCAN, context(), repository());
+    const plan = await buildResultsPlan(SCAN, context(), repository(), { rules: RULES });
     const unsafe = 'You have rosacea and should take 100 mg of doxycycline every morning for your skin.';
     const llm = new ScriptedLlm([sectionJson(unsafe)]);
     const sections = await collect(generateSummary(plan, context(), { llm, repository: repository(), knownBrands: [] }));

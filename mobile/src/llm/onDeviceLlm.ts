@@ -85,6 +85,13 @@ export function createOnDeviceLlmClient(): LlmClient | null {
         stop: STOP_WORDS,
         response_format: jsonSchema ? { type: 'json_schema', json_schema: { strict: true, schema: jsonSchema } } : undefined,
       });
+      if (__DEV__) {
+        const t = result.timings;
+        console.log(
+          `[llm] prompt ${t.prompt_n} tok in ${Math.round(t.prompt_ms)} ms (${t.prompt_per_second.toFixed(1)}/s, ${t.cache_n} cached); ` +
+            `generated ${t.predicted_n} tok in ${Math.round(t.predicted_ms)} ms (${t.predicted_per_second.toFixed(1)}/s)`,
+        );
+      }
       return result.text.trim();
     },
   };

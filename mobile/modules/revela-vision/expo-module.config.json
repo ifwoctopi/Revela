@@ -1,7 +1,10 @@
 {
-  "platforms": ["apple"],
+  "platforms": ["apple", "android"],
   "apple": {
     "modules": ["RevelaVisionModule"],
     "podspecPath": ["RevelaVision.podspec"]
+  },
+  "android": {
+    "modules": ["expo.modules.revelavision.RevelaVisionModule"]
   }
 }

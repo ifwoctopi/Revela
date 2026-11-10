@@ -1,6 +1,7 @@
 // Per-section instructions for the model, and deterministic templates used
 // when no on-device model is installed. Templates only restate the plan.
 
+import { describeEvidence } from '../knowledge/recommend';
 import { CONDITION_LABELS } from '../llm/prompt';
 import { ACTIVES } from '../products/ingredients';
 import type { ResultsPlan } from './plan';
@@ -81,7 +82,8 @@ export function templateSection(id: SectionId, plan: ResultsPlan): SectionText {
         const actives = p.actives.filter((a) => ACTIVES[a].concerns.length > 0 || p.kind === 'sunscreen').map((a) => ACTIVES[a].name);
         const why = p.addresses.length ? ` for ${joinList(p.addresses.map((c) => CONDITION_LABELS[c]))}` : '';
         const has = actives.length ? ` has ${joinList(actives)}${why}.` : ` is a gentle ${p.kind.replace('_', ' ')}.`;
-        return `${p.name}${has} Use ${p.time === 'AM' ? 'mornings' : 'evenings'}, ${p.frequency}.`;
+        const evidence = describeEvidence(p.evidence ?? []);
+        return `${p.name}${has} Use ${p.time === 'AM' ? 'mornings' : 'evenings'}, ${p.frequency}.${evidence ? ` ${evidence}.` : ''}`;
       });
       return text(
         lines.join('\n\n'),

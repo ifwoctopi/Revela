@@ -1,0 +1,12 @@
+{
+  "classes": [
+    "Acne",
+    "Dark_Circles",
+    "Dry_Skin",
+    "Oily_Skin",
+    "Post-Inflammatory_hyperpigmentation"
+  ],
+  "inputSize": 224,
+  "threshold": 0.5,
+  "input": "RGB, NCHW float32, 0-255 (normalisation is inside the graph)"
+}

@@ -2,6 +2,7 @@
 // summary → follow-up chat. Chat history lives only here (the app doesn't
 // persist conversations elsewhere), so it ends with the session.
 
+import { Camera } from 'expo-camera';
 import React from 'react';
 
 import { sampleSessionSummary } from '../data/mockData';
@@ -12,6 +13,7 @@ import { loadUserContext, saveUserContext } from '../intake/storage';
 import { hasOfflineImage } from '../products/images';
 import { generateSummary } from '../summary/generate';
 import { buildResultsPlan, type ResultsPlan } from '../summary/plan';
+import { createLlmSelector } from '../summary/selection';
 import { SECTION_IDS, type SummarySection } from '../summary/schema';
 import type { SessionSummary } from '../types/session';
 import { CURRENT_USER_ID, getFlowServices, type FlowServices } from './services';
@@ -33,7 +35,12 @@ interface ResultsFlowValue {
   setChat: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
-const ResultsFlowContext = React.createContext<ResultsFlowValue | null>(null);
+const ACNE_FALLBACK_SCAN: SessionSummary = {
+  ...sampleSessionSummary,
+  results: { acne: sampleSessionSummary.results.acne },
+};
+
+const ResultsFlowContext =React.createContext<ResultsFlowValue | null>(null);
 
 export function ResultsFlowProvider({ children }: { children: React.ReactNode }) {
   const [services, setServices] = React.useState<FlowServices | null>(null);
@@ -44,11 +51,14 @@ export function ResultsFlowProvider({ children }: { children: React.ReactNode })
   const [sections, setSections] = React.useState<(SummarySection | null)[]>(() => SECTION_IDS.map(() => null));
   const [chat, setChat] = React.useState<ChatMessage[]>([]);
   const generation = React.useRef(0);
-  // Scan results come from the mock data, which stays the source of truth.
-  const scan = sampleSessionSummary;
+  // Scan results come from the mock data. Without camera access there is no real
+  // scan, so we temporarily fall back to hardcoded acne-only results.
+  const [cameraGranted, setCameraGranted] = React.useState(true);
+  const scan = cameraGranted ? sampleSessionSummary : ACNE_FALLBACK_SCAN;
 
   React.useEffect(() => {
     let active = true;
+    Camera.getCameraPermissionsAsync().then((p) => active && setCameraGranted(p.granted), () => active && setCameraGranted(false));
     getFlowServices().then((s) => active && setServices(s), () => active && setServicesError(true));
     loadUserContext(CURRENT_USER_ID).then((saved) => active && saved && setUserContext(saved), () => undefined);
     return () => {
@@ -71,7 +81,17 @@ export function ResultsFlowProvider({ children }: { children: React.ReactNode })
     const run = ++generation.current;
     setSections(SECTION_IDS.map(() => null));
     setChat([]);
-    const nextPlan = await buildResultsPlan(scan, userContext, services.repository, { hasOfflineImage });
+    // The synced ingredient rules steer product choice; without a sync the built-in rules apply.
+    const rules = (await services.knowledge?.listRules().catch(() => undefined)) ?? [];
+    const nextPlan = await buildResultsPlan(scan, userContext, services.repository, {
+      hasOfflineImage,
+      rules,
+      selector: services.llm
+        ? createLlmSelector(services.llm, userContext, (trace) => {
+            if (__DEV__) console.log('[selection]', JSON.stringify(trace, null, 1));
+          })
+        : undefined,
+    });
     // Escalations from the intake answers are surfaced with the results too.
     const withIntake: ResultsPlan =
       !nextPlan.escalation && intakeEscalations.length ? { ...nextPlan, escalation: intakeEscalations[0] } : nextPlan;

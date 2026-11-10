@@ -5,6 +5,7 @@
 // schema names, raw ingredient lists or the system prompt.
 
 import type { RoutineStep, UserContext } from '../intake/userContext';
+import { describeEvidence } from '../knowledge/recommend';
 import { CONDITION_LABELS } from '../llm/prompt';
 import { ACTIVES, type ActiveId, type SensitivityId } from '../products/ingredients';
 import { mentionedActives } from '../products/mentions';
@@ -64,7 +65,8 @@ function describeProduct(p: PlannedProduct): string {
   const withActives = actives.length ? ` with ${actives.map(activeName).join(' and ')}` : '';
   const forWhat = p.addresses.length ? `, chosen for ${p.addresses.map((c) => CONDITION_LABELS[c]).join(' and ')}` : '';
   const when = p.time === 'AM' ? 'in the morning' : 'in the evening';
-  return `[${p.ref}] ${p.name}: ${KIND_NAMES[p.kind]}${withActives}${forWhat}. Use ${when}, ${p.frequency}.`;
+  const evidence = describeEvidence(p.evidence ?? []);
+  return `[${p.ref}] ${p.name}: ${KIND_NAMES[p.kind]}${withActives}${forWhat}. Use ${when}, ${p.frequency}.${evidence ? ` Evidence: ${evidence}.` : ''}`;
 }
 
 const refOf = (p: PlannedProduct) => ({ ref: p.ref, name: p.name, brand: p.brand, barcode: p.barcode });
@@ -133,6 +135,7 @@ export function chatFacts(
   sections: readonly SummarySection[],
   retrieved: readonly RetrievedProduct[],
   ingredientFacts: readonly string[],
+  knowledgeFacts: readonly string[] = [],
 ): ScopedFacts {
   const presented = sections.filter((s) => !s.isFallback).map((s) => `${s.title}: ${s.displayText}`).join('\n');
   const retrievedLines = retrieved.map((r) => {
@@ -147,6 +150,7 @@ export function chatFacts(
       `Recommended products:\n${plan.products.map(describeProduct).join('\n') || '- none'}`,
       retrievedLines.length ? `Products found for this question:\n${retrievedLines.join('\n')}` : '',
       ingredientFacts.length ? `Ingredient facts:\n${bullets([...ingredientFacts])}` : '',
+      knowledgeFacts.length ? `Reference notes (vetted guidance; prefer these for ingredient and condition questions):\n${bullets([...knowledgeFacts])}` : '',
       `Summary already shown to the user:\n${presented}`,
     ].filter(Boolean).join('\n\n'),
     products: [...plan.products.map(refOf), ...retrieved.map((r) => ({ ref: r.ref, name: r.name, brand: r.brand, barcode: r.barcode }))],

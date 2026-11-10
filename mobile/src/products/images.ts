@@ -4,7 +4,8 @@
 //   3. if the caller allows it and the device is online, download and cache
 //   4. otherwise null, and the UI shows a vector placeholder
 //
-// The results flow and chat call this with allowNetwork: false. Fetching an
+// Downloads are off by default and only happen if the user turns on the opt-in
+// setting (imageSettings.ts), which ProductImage reads. Fetching an
 // image for a recommended product would tell the image server which products
 // were recommended, and those are derived from the user's skin results.
 
